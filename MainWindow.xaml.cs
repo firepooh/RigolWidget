@@ -27,6 +27,7 @@ public partial class MainWindow : Window
     // 설정 팝업 상태
     private ChannelUi? _popCh;
     private char _popField;   // 'V' | 'A'
+    private bool _mini;       // 미니창 모드
 
     // 휠 조작 디바운스: 조작 중엔 SET 표시만 갱신(깜빡임), 멈추면 장비로 전송
     private readonly DispatcherTimer _wheelTimer;
@@ -49,6 +50,8 @@ public partial class MainWindow : Window
             {
                 Channel = 1, Accent = (Brush)FindResource("Ch1Accent"),
                 Track = Ch1Track, Knob = Ch1Knob,
+                MiniTrack = MiniCh1Track, MiniKnob = MiniCh1Knob,
+                MiniMeasV = MiniCh1MeasV, MiniMeasA = MiniCh1MeasA,
                 CvChip = Ch1CvChip, CvText = Ch1CvText, CcChip = Ch1CcChip, CcText = Ch1CcText,
                 MeasV = Ch1MeasV, MeasA = Ch1MeasA,
                 SetVText = Ch1SetVText, SetAText = Ch1SetAText,
@@ -61,6 +64,8 @@ public partial class MainWindow : Window
             {
                 Channel = 2, Accent = (Brush)FindResource("Ch2Accent"),
                 Track = Ch2Track, Knob = Ch2Knob,
+                MiniTrack = MiniCh2Track, MiniKnob = MiniCh2Knob,
+                MiniMeasV = MiniCh2MeasV, MiniMeasA = MiniCh2MeasA,
                 CvChip = Ch2CvChip, CvText = Ch2CvText, CcChip = Ch2CcChip, CcText = Ch2CcText,
                 MeasV = Ch2MeasV, MeasA = Ch2MeasA,
                 SetVText = Ch2SetVText, SetAText = Ch2SetAText,
@@ -135,6 +140,17 @@ public partial class MainWindow : Window
         if (tb.Text != text) tb.Text = text;
     }
 
+    /// <summary>측정 전압/전류 텍스트를 전체·미니 표시 양쪽에 갱신.</summary>
+    private static void SetMeasText(ChannelUi c, double v, double a)
+    {
+        string sv = v.ToString("0.000", CultureInfo.InvariantCulture);
+        string sa = a.ToString("0.000", CultureInfo.InvariantCulture);
+        SetTextIfChanged(c.MeasV, sv);
+        SetTextIfChanged(c.MeasA, sa);
+        SetTextIfChanged(c.MiniMeasV, sv);
+        SetTextIfChanged(c.MiniMeasA, sa);
+    }
+
     /// <summary>빠른 폴링: 측정값(묶음 질의) + 동작 모드(CV/CC).</summary>
     private void FastPollChannel(ChannelUi c)
     {
@@ -143,11 +159,7 @@ public partial class MainWindow : Window
 
         Dispatcher.InvokeAsync(() =>
         {
-            if (okMeas)
-            {
-                SetTextIfChanged(c.MeasV, v.ToString("0.000", CultureInfo.InvariantCulture));
-                SetTextIfChanged(c.MeasA, a.ToString("0.000", CultureInfo.InvariantCulture));
-            }
+            if (okMeas) SetMeasText(c, v, a);
             if (okM && c.Mode != mode)
             {
                 c.Mode = mode;
@@ -175,11 +187,7 @@ public partial class MainWindow : Window
 
         Dispatcher.InvokeAsync(() =>
         {
-            if (okMeas)
-            {
-                SetTextIfChanged(c.MeasV, measV.ToString("0.000", CultureInfo.InvariantCulture));
-                SetTextIfChanged(c.MeasA, measA.ToString("0.000", CultureInfo.InvariantCulture));
-            }
+            if (okMeas) SetMeasText(c, measV, measA);
 
             if (okMode && c.Mode != mode)
             {
@@ -268,16 +276,23 @@ public partial class MainWindow : Window
 
     // ================= 렌더 헬퍼 =================
 
-    /// <summary>세로 토글: ON = accent 트랙+글로우+knob 위, OFF = 회색 트랙+knob 아래.</summary>
+    /// <summary>세로 토글 렌더 — 전체·미니 두 스위치를 함께 갱신.</summary>
     private static void RenderToggle(ChannelUi c, bool animate)
     {
-        if (c.OutputOn)
+        RenderSwitch(c.Track, c.Knob, c.OutputOn, c.Accent, animate);
+        RenderSwitch(c.MiniTrack, c.MiniKnob, c.OutputOn, c.Accent, animate);
+    }
+
+    /// <summary>세로 스위치 하나: ON = accent 트랙+글로우+knob 위, OFF = 회색 트랙+knob 아래.</summary>
+    private static void RenderSwitch(Border track, Ellipse knob, bool on, Brush accent, bool animate)
+    {
+        if (on)
         {
-            c.Track.Background = c.Accent;
-            c.Track.BorderBrush = c.Accent;
-            c.Track.BorderThickness = new Thickness(1);
-            var col = ((SolidColorBrush)c.Accent).Color;
-            c.Track.Effect = new System.Windows.Media.Effects.DropShadowEffect
+            track.Background = accent;
+            track.BorderBrush = accent;
+            track.BorderThickness = new Thickness(1);
+            var col = ((SolidColorBrush)accent).Color;
+            track.Effect = new System.Windows.Media.Effects.DropShadowEffect
             {
                 Color = col,
                 BlurRadius = 8,
@@ -287,28 +302,28 @@ public partial class MainWindow : Window
         }
         else
         {
-            c.Track.Background = new SolidColorBrush(Color.FromArgb(0x24, 0xFF, 0xFF, 0xFF));
-            c.Track.BorderBrush = new SolidColorBrush(Color.FromArgb(0x29, 0xFF, 0xFF, 0xFF));
-            c.Track.BorderThickness = new Thickness(1);
-            c.Track.Effect = null;
+            track.Background = new SolidColorBrush(Color.FromArgb(0x24, 0xFF, 0xFF, 0xFF));
+            track.BorderBrush = new SolidColorBrush(Color.FromArgb(0x29, 0xFF, 0xFF, 0xFF));
+            track.BorderThickness = new Thickness(1);
+            track.Effect = null;
         }
 
-        // knob 슬라이드(세로): ON=위(3px), OFF=아래(25px). 트랙 1px 테두리 보정 -1.
-        double target = c.OutputOn ? 2 : 24;
+        // knob 슬라이드(세로): ON=위(2px), OFF=아래(24px). 트랙 1px 테두리 보정.
+        double target = on ? 2 : 24;
         if (animate)
         {
             var slide = new DoubleAnimation(target, new Duration(TimeSpan.FromSeconds(0.15)))
             {
                 EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut }
             };
-            c.Knob.BeginAnimation(Canvas.TopProperty, slide);
+            knob.BeginAnimation(Canvas.TopProperty, slide);
         }
         else
         {
-            c.Knob.BeginAnimation(Canvas.TopProperty, null);
-            Canvas.SetTop(c.Knob, target);
+            knob.BeginAnimation(Canvas.TopProperty, null);
+            Canvas.SetTop(knob, target);
         }
-        Canvas.SetLeft(c.Knob, 2);
+        Canvas.SetLeft(knob, 2);
     }
 
     /// <summary>CV/CC 모드 칩 렌더: 현재 모드만 accent 활성. UR이면 둘 다 비활성.</summary>
@@ -676,8 +691,21 @@ public partial class MainWindow : Window
 
     private void TitleBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
+        if (e.ClickCount == 2)   // 더블클릭 → 미니창 모드 토글
+        {
+            ToggleMini();
+            return;
+        }
         if (e.ButtonState == MouseButtonState.Pressed)
             DragMove();
+    }
+
+    private void ToggleMini()
+    {
+        _mini = !_mini;
+        SetPopup.IsOpen = false;   // 미니 전환 시 열린 팝업 닫기
+        FullBody.Visibility = _mini ? Visibility.Collapsed : Visibility.Visible;
+        MiniBody.Visibility = _mini ? Visibility.Visible : Visibility.Collapsed;
     }
 
     // 타이틀바에서 휠 → 투명도 조절 (0.35 ~ 1.0)
@@ -723,6 +751,10 @@ public partial class MainWindow : Window
 
         public required Border Track;
         public required Ellipse Knob;
+        public required Border MiniTrack;
+        public required Ellipse MiniKnob;
+        public required TextBlock MiniMeasV;
+        public required TextBlock MiniMeasA;
         public required Border CvChip;
         public required TextBlock CvText;
         public required Border CcChip;
