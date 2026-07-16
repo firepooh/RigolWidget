@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Platforms>x64</Platforms>
+    <PlatformTarget>x64</PlatformTarget>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>false</SelfContained>
+    <AssemblyName>RigolWidget</AssemblyName>
+    <RootNamespace>RigolWidget</RootNamespace>
+    <ApplicationIcon></ApplicationIcon>
+    <Version>1.0.0</Version>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+  </PropertyGroup>
+
+  <!-- WinForms 전역 using 제거: WPF 타입과의 모호성 방지 (Screen은 EdgeSnap에서 별칭 사용) -->
+  <ItemGroup>
+    <Using Remove="System.Windows.Forms" />
+    <Using Remove="System.Drawing" />
+  </ItemGroup>
+
+  <!-- 임베드 폰트: DSEG7 Classic Bold (7세그먼트, SIL OFL) -->
+  <ItemGroup>
+    <Resource Include="Fonts\*.ttf" />
+  </ItemGroup>
+
+</Project>

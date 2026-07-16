@@ -1,0 +1,497 @@
+<Window x:Class="RigolWidget.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="DP832" SizeToContent="WidthAndHeight"
+        WindowStyle="None" AllowsTransparency="True" Background="Transparent"
+        ResizeMode="NoResize" Topmost="True" ShowInTaskbar="True"
+        WindowStartupLocation="CenterScreen" FontFamily="Segoe UI">
+
+    <Window.Resources>
+        <!-- DSEG7 7세그먼트 폰트 (임베드 리소스) -->
+        <FontFamily x:Key="Dseg7">pack://application:,,,/Fonts/#DSEG7 Classic</FontFamily>
+
+        <!-- VFD 패널 배경 -->
+        <RadialGradientBrush x:Key="VfdBg" GradientOrigin="0.5,0" Center="0.5,0" RadiusX="1.2" RadiusY="1.2">
+            <GradientStop Color="#0A1512" Offset="0"/>
+            <GradientStop Color="#050A09" Offset="1"/>
+        </RadialGradientBrush>
+
+        <!-- 채널별 색 -->
+        <SolidColorBrush x:Key="Ch1SegText" Color="#C9FFE0"/>
+        <SolidColorBrush x:Key="Ch2SegText" Color="#DAF6FF"/>
+        <SolidColorBrush x:Key="Ch1Unit" Color="#7DFFAF"/>
+        <SolidColorBrush x:Key="Ch2Unit" Color="#8CEAFF"/>
+        <SolidColorBrush x:Key="Ch1Set" Color="#9FD8B6"/>
+        <SolidColorBrush x:Key="Ch2Set" Color="#A3D9E8"/>
+        <SolidColorBrush x:Key="Ch1RowTint" Color="#0F35C24A"/>
+        <SolidColorBrush x:Key="Ch2RowTint" Color="#0F22BCD4"/>
+        <SolidColorBrush x:Key="TripRed" Color="#E0322F"/>
+        <SolidColorBrush x:Key="TripLabel" Color="#FF5A5A"/>
+        <SolidColorBrush x:Key="ProtCardBg" Color="#09FFFFFF"/>
+        <SolidColorBrush x:Key="ProtCardBorder" Color="#1AFFFFFF"/>
+        <SolidColorBrush x:Key="ChipInactiveFg" Color="#5A6068"/>
+        <SolidColorBrush x:Key="ChipInactiveBorder" Color="#1FFFFFFF"/>
+
+        <!-- 보호값 입력칸 -->
+        <Style x:Key="SmallInput" TargetType="TextBox">
+            <Setter Property="FontFamily" Value="Consolas"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Foreground" Value="{StaticResource InputText}"/>
+            <Setter Property="Background" Value="{StaticResource InputBg}"/>
+            <Setter Property="CaretBrush" Value="{StaticResource BrandYellow}"/>
+            <Setter Property="TextAlignment" Value="Right"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Width" Value="46"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <Border x:Name="bd" CornerRadius="4" Background="{TemplateBinding Background}"
+                                BorderBrush="{StaticResource InputBorder}" BorderThickness="1"
+                                Padding="4,2">
+                            <ScrollViewer x:Name="PART_ContentHost"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsFocused" Value="True">
+                                <Setter TargetName="bd" Property="BorderBrush" Value="{StaticResource BrandYellow}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- CV/CC 모드 칩 텍스트 -->
+        <Style x:Key="ModeChipText" TargetType="TextBlock">
+            <Setter Property="FontWeight" Value="ExtraBold"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+        </Style>
+
+        <!-- 팝업 스텝 버튼 -->
+        <Style x:Key="StepButton" TargetType="Button">
+            <Setter Property="Background" Value="{StaticResource InputBg}"/>
+            <Setter Property="Foreground" Value="{StaticResource InputText}"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="FontSize" Value="10"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bd" CornerRadius="5" Background="{TemplateBinding Background}"
+                                BorderBrush="#24FFFFFF" BorderThickness="1" Padding="0,6">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#1AFFFFFF"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <Grid>
+        <!-- 그림자 전용 배경판: 내용과 분리해 두어야 내용(측정값 텍스트 등)이
+             갱신될 때마다 창 전체가 그림자 셰이더를 다시 통과하지 않는다. -->
+        <Border Background="{StaticResource CardBg}" CornerRadius="9" SnapsToDevicePixels="True">
+            <Border.Effect>
+                <DropShadowEffect BlurRadius="34" ShadowDepth="10" Direction="270" Opacity="0.55" Color="Black"/>
+            </Border.Effect>
+        </Border>
+
+        <!-- 카드 (내용) -->
+        <Border Background="Transparent" BorderBrush="{StaticResource CardBorder}"
+                BorderThickness="1" CornerRadius="9" SnapsToDevicePixels="True">
+
+            <StackPanel>
+                <!-- ===== 타이틀바 (드래그 / 휠=투명도 / 우클릭=버전·메뉴) ===== -->
+                <Border x:Name="TitleBar" Height="20" Background="{StaticResource TitleBarBg}"
+                        CornerRadius="9,9,0,0" MouseLeftButtonDown="TitleBar_MouseLeftButtonDown"
+                        MouseWheel="TitleBar_MouseWheel">
+                    <Border.ContextMenu>
+                        <ContextMenu>
+                            <MenuItem x:Name="VersionMenu" Header="RigolWidget" IsEnabled="False"/>
+                            <Separator/>
+                            <MenuItem x:Name="PinMenu" Header="항상 위에 고정" IsCheckable="True"
+                                      IsChecked="True" Click="PinMenu_Click"/>
+                            <MenuItem Header="닫기" Click="CloseMenu_Click"/>
+                        </ContextMenu>
+                    </Border.ContextMenu>
+                    <Grid Margin="8,0">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <UniformGrid Columns="2" Rows="2" Width="6" Height="6" Margin="0,0,5,0">
+                                <Rectangle Width="2" Height="2" RadiusX="1" RadiusY="1" Fill="#4DFFFFFF"/>
+                                <Rectangle Width="2" Height="2" RadiusX="1" RadiusY="1" Fill="#4DFFFFFF"/>
+                                <Rectangle Width="2" Height="2" RadiusX="1" RadiusY="1" Fill="#4DFFFFFF"/>
+                                <Rectangle Width="2" Height="2" RadiusX="1" RadiusY="1" Fill="#4DFFFFFF"/>
+                            </UniformGrid>
+                            <TextBlock Text="DP832" Foreground="{StaticResource BrandYellow}"
+                                       FontWeight="Bold" FontSize="9"/>
+                            <Ellipse x:Name="LiveDot" Width="5" Height="5" Margin="5,0,0,0"
+                                     Fill="{StaticResource Ch1Accent}" VerticalAlignment="Center"/>
+                            <TextBlock x:Name="ConnText" Text="연결됨" Foreground="#6B7077"
+                                       FontSize="8" Margin="5,0,0,0" VerticalAlignment="Center"/>
+                        </StackPanel>
+
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                            <Button x:Name="PinButton" Click="Pin_Click" ToolTip="항상 위에 고정"
+                                    Background="Transparent" BorderThickness="0" Cursor="Hand"
+                                    Padding="0" Margin="0,0,7,0" Width="14" Height="14">
+                                <Viewbox Width="11" Height="11">
+                                    <Path x:Name="PinIcon" Stroke="{StaticResource BrandYellow}"
+                                          StrokeThickness="2.2" StrokeStartLineCap="Round"
+                                          StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                                          Data="M9 4h6M10 4l1 7-4 3v1h10v-1l-4-3 1-7M12 15v5"/>
+                                </Viewbox>
+                            </Button>
+                            <TextBlock Text="—" Foreground="#9AA0A8" FontSize="10" Cursor="Hand"
+                                       Margin="0,0,7,0" VerticalAlignment="Center"
+                                       MouseLeftButtonDown="Minimize_Click"/>
+                            <TextBlock Text="✕" Foreground="#9AA0A8" FontSize="11" Cursor="Hand"
+                                       VerticalAlignment="Center" MouseLeftButtonDown="Close_Click"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <!-- ===== 본문 ===== -->
+                <StackPanel Margin="9,7">
+
+                    <!-- ===== CH1 행 ===== -->
+                    <Border Background="{StaticResource Ch1RowTint}" CornerRadius="5" Padding="8,3"
+                            BorderBrush="{StaticResource Ch1Accent}" BorderThickness="2,0,0,0">
+                        <StackPanel Orientation="Horizontal">
+                            <!-- 세로 출력 토글 (22x44, knob 16) -->
+                            <Border x:Name="Ch1Track" Width="22" Height="44" CornerRadius="11"
+                                    Background="#24FFFFFF" VerticalAlignment="Center" Cursor="Hand"
+                                    MouseLeftButtonDown="Ch1Dot_Click" ToolTip="출력 ON/OFF">
+                                <Canvas>
+                                    <Ellipse x:Name="Ch1Knob" Width="16" Height="16" Fill="White"
+                                             Canvas.Left="2" Canvas.Top="24">
+                                        <Ellipse.Effect>
+                                            <DropShadowEffect BlurRadius="2" ShadowDepth="1" Direction="270"
+                                                              Opacity="0.5" Color="Black"/>
+                                        </Ellipse.Effect>
+                                    </Ellipse>
+                                </Canvas>
+                            </Border>
+
+                            <TextBlock Text="CH1" Foreground="{StaticResource Ch1Accent}" FontWeight="ExtraBold"
+                                       FontSize="15" Margin="7,0,0,0" VerticalAlignment="Center"/>
+
+                            <!-- CV/CC 모드 칩 (세로) -->
+                            <StackPanel Margin="7,0,0,0" VerticalAlignment="Center" ToolTip="동작 모드 (CV/CC)">
+                                <Border x:Name="Ch1CvChip" CornerRadius="3" Padding="6,3"
+                                        Background="Transparent" BorderBrush="{StaticResource ChipInactiveBorder}"
+                                        BorderThickness="1">
+                                    <TextBlock x:Name="Ch1CvText" Text="CV" Style="{StaticResource ModeChipText}"
+                                               Foreground="{StaticResource ChipInactiveFg}"/>
+                                </Border>
+                                <Border x:Name="Ch1CcChip" CornerRadius="3" Padding="6,3" Margin="0,2,0,0"
+                                        Background="Transparent" BorderBrush="{StaticResource ChipInactiveBorder}"
+                                        BorderThickness="1">
+                                    <TextBlock x:Name="Ch1CcText" Text="CC" Style="{StaticResource ModeChipText}"
+                                               Foreground="{StaticResource ChipInactiveFg}"/>
+                                </Border>
+                            </StackPanel>
+
+                            <!-- VFD: 전압 -->
+                            <Border Background="{StaticResource VfdBg}" CornerRadius="4" Padding="8,4,8,5"
+                                    BorderBrush="#0AFFFFFF" BorderThickness="1" Margin="10,0,0,0"
+                                    VerticalAlignment="Center" Cursor="Hand" Tag="1,V"
+                                    MouseLeftButtonUp="Vfd_Click" MouseWheel="Vfd_Wheel">
+                                <StackPanel Orientation="Horizontal" Background="Transparent">
+                                    <TextBlock x:Name="Ch1MeasV" Text="0.000" FontFamily="{StaticResource Dseg7}"
+                                               FontWeight="Bold" FontSize="27" Foreground="{StaticResource Ch1SegText}"
+                                               Width="112" TextAlignment="Right">
+                                        <TextBlock.Effect>
+                                            <DropShadowEffect Color="#4DFF88" BlurRadius="12" ShadowDepth="0" Opacity="0.9"/>
+                                        </TextBlock.Effect>
+                                    </TextBlock>
+                                    <TextBlock Text="V" Foreground="{StaticResource Ch1Unit}" FontWeight="Bold"
+                                               FontSize="20" VerticalAlignment="Bottom" Margin="5,0,0,0"/>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- VFD: 전류 -->
+                            <Border Background="{StaticResource VfdBg}" CornerRadius="4" Padding="8,4,8,5"
+                                    BorderBrush="#0AFFFFFF" BorderThickness="1" Margin="6,0,0,0"
+                                    VerticalAlignment="Center" Cursor="Hand" Tag="1,A"
+                                    MouseLeftButtonUp="Vfd_Click" MouseWheel="Vfd_Wheel">
+                                <StackPanel Orientation="Horizontal" Background="Transparent">
+                                    <TextBlock x:Name="Ch1MeasA" Text="0.000" FontFamily="{StaticResource Dseg7}"
+                                               FontWeight="Bold" FontSize="27" Foreground="{StaticResource Ch1SegText}"
+                                               Width="95" TextAlignment="Right">
+                                        <TextBlock.Effect>
+                                            <DropShadowEffect Color="#4DFF88" BlurRadius="12" ShadowDepth="0" Opacity="0.9"/>
+                                        </TextBlock.Effect>
+                                    </TextBlock>
+                                    <TextBlock Text="A" Foreground="{StaticResource Ch1Unit}" FontWeight="Bold"
+                                               FontSize="20" VerticalAlignment="Bottom" Margin="5,0,0,0"/>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- SET 값 표시 -->
+                            <StackPanel Margin="8,0,0,0" VerticalAlignment="Center" MinWidth="64">
+                                <TextBlock x:Name="Ch1SetVText" Text="0.000 V" FontFamily="Consolas" FontWeight="Bold"
+                                           FontSize="15" Foreground="{StaticResource Ch1Set}" TextAlignment="Right"/>
+                                <TextBlock x:Name="Ch1SetAText" Text="0.000 A" FontFamily="Consolas" FontWeight="Bold"
+                                           FontSize="15" Foreground="{StaticResource Ch1Set}" TextAlignment="Right"
+                                           Margin="0,4,0,0"/>
+                            </StackPanel>
+
+                            <!-- 보호 그룹 카드 (OCP / OCV) -->
+                            <Border Background="{StaticResource ProtCardBg}" BorderBrush="{StaticResource ProtCardBorder}"
+                                    BorderThickness="1" CornerRadius="6" Padding="7,5" Margin="10,0,0,0"
+                                    VerticalAlignment="Center">
+                                <StackPanel>
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                        <StackPanel Orientation="Horizontal" Cursor="Hand" Background="Transparent"
+                                                    MouseLeftButtonDown="Ch1Ocp_Click" VerticalAlignment="Center">
+                                            <Border x:Name="Ch1OcpBox" Width="12" Height="12" CornerRadius="3"
+                                                    Background="Transparent" BorderBrush="#40FFFFFF" BorderThickness="1">
+                                                <TextBlock x:Name="Ch1OcpMark" Text="✓" FontSize="9" FontWeight="Bold"
+                                                           Foreground="{StaticResource CheckFg}" HorizontalAlignment="Center"
+                                                           VerticalAlignment="Center" Visibility="Collapsed"/>
+                                            </Border>
+                                            <TextBlock x:Name="Ch1OcpLabel" Text="OCP" Foreground="{StaticResource SubText2}"
+                                                       FontWeight="Bold" FontSize="8" Margin="3,0,5,0" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                        <TextBox x:Name="Ch1OcpVal" Style="{StaticResource SmallInput}" Text="3.000"
+                                                 KeyDown="ProtVal_KeyDown" LostFocus="ProtVal_Commit" Tag="1,OCP"/>
+                                        <TextBlock Text="A" Foreground="{StaticResource SubText2}" FontWeight="Bold"
+                                                   FontSize="8" Width="8" Margin="3,0,0,0" VerticalAlignment="Center"/>
+                                        <Border x:Name="Ch1OcpTrip" Background="{StaticResource TripRed}" CornerRadius="3"
+                                                Padding="4,2" Margin="3,0,0,0" Cursor="Hand" Visibility="Collapsed"
+                                                Tag="1,OCP" MouseLeftButtonDown="Trip_Click" ToolTip="클릭: 트립 해제">
+                                            <TextBlock Text="TRIP" Foreground="White" FontWeight="ExtraBold" FontSize="8"/>
+                                        </Border>
+                                    </StackPanel>
+
+                                    <Border Height="1" Background="#12FFFFFF" Margin="0,4"/>
+
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                        <StackPanel Orientation="Horizontal" Cursor="Hand" Background="Transparent"
+                                                    MouseLeftButtonDown="Ch1Ocv_Click" VerticalAlignment="Center">
+                                            <Border x:Name="Ch1OcvBox" Width="12" Height="12" CornerRadius="3"
+                                                    Background="Transparent" BorderBrush="#40FFFFFF" BorderThickness="1">
+                                                <TextBlock x:Name="Ch1OcvMark" Text="✓" FontSize="9" FontWeight="Bold"
+                                                           Foreground="{StaticResource CheckFg}" HorizontalAlignment="Center"
+                                                           VerticalAlignment="Center" Visibility="Collapsed"/>
+                                            </Border>
+                                            <TextBlock x:Name="Ch1OcvLabel" Text="OCV" Foreground="{StaticResource SubText2}"
+                                                       FontWeight="Bold" FontSize="8" Margin="3,0,5,0" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                        <TextBox x:Name="Ch1OcvVal" Style="{StaticResource SmallInput}" Text="33.00"
+                                                 KeyDown="ProtVal_KeyDown" LostFocus="ProtVal_Commit" Tag="1,OCV"/>
+                                        <TextBlock Text="V" Foreground="{StaticResource SubText2}" FontWeight="Bold"
+                                                   FontSize="8" Width="8" Margin="3,0,0,0" VerticalAlignment="Center"/>
+                                        <Border x:Name="Ch1OcvTrip" Background="{StaticResource TripRed}" CornerRadius="3"
+                                                Padding="4,2" Margin="3,0,0,0" Cursor="Hand" Visibility="Collapsed"
+                                                Tag="1,OCV" MouseLeftButtonDown="Trip_Click" ToolTip="클릭: 트립 해제">
+                                            <TextBlock Text="TRIP" Foreground="White" FontWeight="ExtraBold" FontSize="8"/>
+                                        </Border>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- 구분선 -->
+                    <Border Height="1" Background="{StaticResource Divider}" Margin="0,3"/>
+
+                    <!-- ===== CH2 행 ===== -->
+                    <Border Background="{StaticResource Ch2RowTint}" CornerRadius="5" Padding="8,3"
+                            BorderBrush="{StaticResource Ch2Accent}" BorderThickness="2,0,0,0">
+                        <StackPanel Orientation="Horizontal">
+                            <Border x:Name="Ch2Track" Width="22" Height="44" CornerRadius="11"
+                                    Background="#24FFFFFF" VerticalAlignment="Center" Cursor="Hand"
+                                    MouseLeftButtonDown="Ch2Dot_Click" ToolTip="출력 ON/OFF">
+                                <Canvas>
+                                    <Ellipse x:Name="Ch2Knob" Width="16" Height="16" Fill="White"
+                                             Canvas.Left="2" Canvas.Top="24">
+                                        <Ellipse.Effect>
+                                            <DropShadowEffect BlurRadius="2" ShadowDepth="1" Direction="270"
+                                                              Opacity="0.5" Color="Black"/>
+                                        </Ellipse.Effect>
+                                    </Ellipse>
+                                </Canvas>
+                            </Border>
+
+                            <TextBlock Text="CH2" Foreground="{StaticResource Ch2Accent}" FontWeight="ExtraBold"
+                                       FontSize="15" Margin="7,0,0,0" VerticalAlignment="Center"/>
+
+                            <StackPanel Margin="7,0,0,0" VerticalAlignment="Center" ToolTip="동작 모드 (CV/CC)">
+                                <Border x:Name="Ch2CvChip" CornerRadius="3" Padding="6,3"
+                                        Background="Transparent" BorderBrush="{StaticResource ChipInactiveBorder}"
+                                        BorderThickness="1">
+                                    <TextBlock x:Name="Ch2CvText" Text="CV" Style="{StaticResource ModeChipText}"
+                                               Foreground="{StaticResource ChipInactiveFg}"/>
+                                </Border>
+                                <Border x:Name="Ch2CcChip" CornerRadius="3" Padding="6,3" Margin="0,2,0,0"
+                                        Background="Transparent" BorderBrush="{StaticResource ChipInactiveBorder}"
+                                        BorderThickness="1">
+                                    <TextBlock x:Name="Ch2CcText" Text="CC" Style="{StaticResource ModeChipText}"
+                                               Foreground="{StaticResource ChipInactiveFg}"/>
+                                </Border>
+                            </StackPanel>
+
+                            <Border Background="{StaticResource VfdBg}" CornerRadius="4" Padding="8,4,8,5"
+                                    BorderBrush="#0AFFFFFF" BorderThickness="1" Margin="10,0,0,0"
+                                    VerticalAlignment="Center" Cursor="Hand" Tag="2,V"
+                                    MouseLeftButtonUp="Vfd_Click" MouseWheel="Vfd_Wheel">
+                                <StackPanel Orientation="Horizontal" Background="Transparent">
+                                    <TextBlock x:Name="Ch2MeasV" Text="0.000" FontFamily="{StaticResource Dseg7}"
+                                               FontWeight="Bold" FontSize="27" Foreground="{StaticResource Ch2SegText}"
+                                               Width="112" TextAlignment="Right">
+                                        <TextBlock.Effect>
+                                            <DropShadowEffect Color="#5FE6FF" BlurRadius="12" ShadowDepth="0" Opacity="0.9"/>
+                                        </TextBlock.Effect>
+                                    </TextBlock>
+                                    <TextBlock Text="V" Foreground="{StaticResource Ch2Unit}" FontWeight="Bold"
+                                               FontSize="20" VerticalAlignment="Bottom" Margin="5,0,0,0"/>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Background="{StaticResource VfdBg}" CornerRadius="4" Padding="8,4,8,5"
+                                    BorderBrush="#0AFFFFFF" BorderThickness="1" Margin="6,0,0,0"
+                                    VerticalAlignment="Center" Cursor="Hand" Tag="2,A"
+                                    MouseLeftButtonUp="Vfd_Click" MouseWheel="Vfd_Wheel">
+                                <StackPanel Orientation="Horizontal" Background="Transparent">
+                                    <TextBlock x:Name="Ch2MeasA" Text="0.000" FontFamily="{StaticResource Dseg7}"
+                                               FontWeight="Bold" FontSize="27" Foreground="{StaticResource Ch2SegText}"
+                                               Width="95" TextAlignment="Right">
+                                        <TextBlock.Effect>
+                                            <DropShadowEffect Color="#5FE6FF" BlurRadius="12" ShadowDepth="0" Opacity="0.9"/>
+                                        </TextBlock.Effect>
+                                    </TextBlock>
+                                    <TextBlock Text="A" Foreground="{StaticResource Ch2Unit}" FontWeight="Bold"
+                                               FontSize="20" VerticalAlignment="Bottom" Margin="5,0,0,0"/>
+                                </StackPanel>
+                            </Border>
+
+                            <StackPanel Margin="8,0,0,0" VerticalAlignment="Center" MinWidth="64">
+                                <TextBlock x:Name="Ch2SetVText" Text="0.000 V" FontFamily="Consolas" FontWeight="Bold"
+                                           FontSize="15" Foreground="{StaticResource Ch2Set}" TextAlignment="Right"/>
+                                <TextBlock x:Name="Ch2SetAText" Text="0.000 A" FontFamily="Consolas" FontWeight="Bold"
+                                           FontSize="15" Foreground="{StaticResource Ch2Set}" TextAlignment="Right"
+                                           Margin="0,4,0,0"/>
+                            </StackPanel>
+
+                            <Border Background="{StaticResource ProtCardBg}" BorderBrush="{StaticResource ProtCardBorder}"
+                                    BorderThickness="1" CornerRadius="6" Padding="7,5" Margin="10,0,0,0"
+                                    VerticalAlignment="Center">
+                                <StackPanel>
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                        <StackPanel Orientation="Horizontal" Cursor="Hand" Background="Transparent"
+                                                    MouseLeftButtonDown="Ch2Ocp_Click" VerticalAlignment="Center">
+                                            <Border x:Name="Ch2OcpBox" Width="12" Height="12" CornerRadius="3"
+                                                    Background="Transparent" BorderBrush="#40FFFFFF" BorderThickness="1">
+                                                <TextBlock x:Name="Ch2OcpMark" Text="✓" FontSize="9" FontWeight="Bold"
+                                                           Foreground="{StaticResource CheckFg}" HorizontalAlignment="Center"
+                                                           VerticalAlignment="Center" Visibility="Collapsed"/>
+                                            </Border>
+                                            <TextBlock x:Name="Ch2OcpLabel" Text="OCP" Foreground="{StaticResource SubText2}"
+                                                       FontWeight="Bold" FontSize="8" Margin="3,0,5,0" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                        <TextBox x:Name="Ch2OcpVal" Style="{StaticResource SmallInput}" Text="3.000"
+                                                 KeyDown="ProtVal_KeyDown" LostFocus="ProtVal_Commit" Tag="2,OCP"/>
+                                        <TextBlock Text="A" Foreground="{StaticResource SubText2}" FontWeight="Bold"
+                                                   FontSize="8" Width="8" Margin="3,0,0,0" VerticalAlignment="Center"/>
+                                        <Border x:Name="Ch2OcpTrip" Background="{StaticResource TripRed}" CornerRadius="3"
+                                                Padding="4,2" Margin="3,0,0,0" Cursor="Hand" Visibility="Collapsed"
+                                                Tag="2,OCP" MouseLeftButtonDown="Trip_Click" ToolTip="클릭: 트립 해제">
+                                            <TextBlock Text="TRIP" Foreground="White" FontWeight="ExtraBold" FontSize="8"/>
+                                        </Border>
+                                    </StackPanel>
+
+                                    <Border Height="1" Background="#12FFFFFF" Margin="0,4"/>
+
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                        <StackPanel Orientation="Horizontal" Cursor="Hand" Background="Transparent"
+                                                    MouseLeftButtonDown="Ch2Ocv_Click" VerticalAlignment="Center">
+                                            <Border x:Name="Ch2OcvBox" Width="12" Height="12" CornerRadius="3"
+                                                    Background="Transparent" BorderBrush="#40FFFFFF" BorderThickness="1">
+                                                <TextBlock x:Name="Ch2OcvMark" Text="✓" FontSize="9" FontWeight="Bold"
+                                                           Foreground="{StaticResource CheckFg}" HorizontalAlignment="Center"
+                                                           VerticalAlignment="Center" Visibility="Collapsed"/>
+                                            </Border>
+                                            <TextBlock x:Name="Ch2OcvLabel" Text="OCV" Foreground="{StaticResource SubText2}"
+                                                       FontWeight="Bold" FontSize="8" Margin="3,0,5,0" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                        <TextBox x:Name="Ch2OcvVal" Style="{StaticResource SmallInput}" Text="33.00"
+                                                 KeyDown="ProtVal_KeyDown" LostFocus="ProtVal_Commit" Tag="2,OCV"/>
+                                        <TextBlock Text="V" Foreground="{StaticResource SubText2}" FontWeight="Bold"
+                                                   FontSize="8" Width="8" Margin="3,0,0,0" VerticalAlignment="Center"/>
+                                        <Border x:Name="Ch2OcvTrip" Background="{StaticResource TripRed}" CornerRadius="3"
+                                                Padding="4,2" Margin="3,0,0,0" Cursor="Hand" Visibility="Collapsed"
+                                                Tag="2,OCV" MouseLeftButtonDown="Trip_Click" ToolTip="클릭: 트립 해제">
+                                            <TextBlock Text="TRIP" Foreground="White" FontWeight="ExtraBold" FontSize="8"/>
+                                        </Border>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </StackPanel>
+        </Border>
+
+        <!-- ===== 설정 팝업 (측정 세그먼트 클릭 시) ===== -->
+        <Popup x:Name="SetPopup" Placement="MousePoint" StaysOpen="False"
+               AllowsTransparency="True" PopupAnimation="Fade">
+            <Border Width="200" Background="#16181D" BorderBrush="#24FFFFFF" BorderThickness="1"
+                    CornerRadius="8" Padding="11">
+                <StackPanel>
+                    <TextBlock x:Name="PopTitle" Text="CH1 · 전압 설정" FontWeight="ExtraBold" FontSize="10"
+                               Foreground="{StaticResource Ch1Accent}" Margin="0,0,0,9"/>
+                    <DockPanel Margin="0,0,0,9">
+                        <TextBlock x:Name="PopUnit" Text="V" DockPanel.Dock="Right" Width="12"
+                                   Foreground="#8A9099" FontWeight="Bold" FontSize="11"
+                                   VerticalAlignment="Center" Margin="6,0,0,0"/>
+                        <TextBox x:Name="PopInput" FontFamily="Consolas" FontWeight="Bold" FontSize="15"
+                                 Foreground="#E6EAEF" Background="{StaticResource InputBg}"
+                                 CaretBrush="{StaticResource BrandYellow}" TextAlignment="Right"
+                                 KeyDown="PopInput_KeyDown">
+                            <TextBox.Template>
+                                <ControlTemplate TargetType="TextBox">
+                                    <Border CornerRadius="5" Background="{TemplateBinding Background}"
+                                            BorderBrush="#2EFFFFFF" BorderThickness="1" Padding="8,7">
+                                        <ScrollViewer x:Name="PART_ContentHost"/>
+                                    </Border>
+                                </ControlTemplate>
+                            </TextBox.Template>
+                        </TextBox>
+                    </DockPanel>
+                    <UniformGrid Columns="4" Margin="0,0,0,9">
+                        <Button x:Name="PopMCoarse" Content="−1" Style="{StaticResource StepButton}"
+                                Margin="0,0,5,0" Click="PopStep_Click" Tag="-C"/>
+                        <Button x:Name="PopMFine" Content="−0.1" Style="{StaticResource StepButton}"
+                                Margin="0,0,5,0" Click="PopStep_Click" Tag="-F"/>
+                        <Button x:Name="PopPFine" Content="+0.1" Style="{StaticResource StepButton}"
+                                Margin="0,0,5,0" Click="PopStep_Click" Tag="+F"/>
+                        <Button x:Name="PopPCoarse" Content="+1" Style="{StaticResource StepButton}"
+                                Click="PopStep_Click" Tag="+C"/>
+                    </UniformGrid>
+                    <Button x:Name="PopApply" Content="적용" FontWeight="ExtraBold" FontSize="10"
+                            Foreground="#08110B" Cursor="Hand" Click="PopApply_Click">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border x:Name="bd" CornerRadius="5" Background="{Binding Background, RelativeSource={RelativeSource TemplatedParent}}"
+                                        Padding="0,8">
+                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="bd" Property="Opacity" Value="0.85"/>
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Button.Template>
+                    </Button>
+                </StackPanel>
+            </Border>
+        </Popup>
+    </Grid>
+</Window>

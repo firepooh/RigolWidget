@@ -1,0 +1,26 @@
+<Application x:Class="RigolWidget.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             ShutdownMode="OnExplicitShutdown">
+    <Application.Resources>
+        <!-- Design tokens (README Design Tokens) -->
+        <Color x:Key="CardBgColor">#F5141519</Color>
+        <SolidColorBrush x:Key="CardBg" Color="#F5141519"/>
+        <SolidColorBrush x:Key="TitleBarBg" Color="#0C0D10"/>
+        <SolidColorBrush x:Key="InputBg" Color="#0F1013"/>
+        <SolidColorBrush x:Key="CardBorder" Color="#17FFFFFF"/>
+        <SolidColorBrush x:Key="InputBorder" Color="#1AFFFFFF"/>
+        <SolidColorBrush x:Key="Divider" Color="#0FFFFFFF"/>
+        <SolidColorBrush x:Key="VDivider" Color="#14FFFFFF"/>
+        <SolidColorBrush x:Key="Ch1Accent" Color="#35C24A"/>
+        <SolidColorBrush x:Key="Ch2Accent" Color="#22BCD4"/>
+        <SolidColorBrush x:Key="Ch2Current" Color="#7FE0EC"/>
+        <SolidColorBrush x:Key="BrandYellow" Color="#F2A900"/>
+        <SolidColorBrush x:Key="NumText" Color="#EEF1F4"/>
+        <SolidColorBrush x:Key="SubText" Color="#8B8F96"/>
+        <SolidColorBrush x:Key="SubText2" Color="#7C828A"/>
+        <SolidColorBrush x:Key="SubText3" Color="#9AA0A8"/>
+        <SolidColorBrush x:Key="InputText" Color="#CDD2D8"/>
+        <SolidColorBrush x:Key="CheckFg" Color="#0B1410"/>
+    </Application.Resources>
+</Application>
