@@ -15,7 +15,7 @@
     <AssemblyName>RigolWidget</AssemblyName>
     <RootNamespace>RigolWidget</RootNamespace>
     <ApplicationIcon>Assets\app.ico</ApplicationIcon>
-    <Version>1.2.0</Version>
+    <Version>1.2.1</Version>
     <ApplicationManifest>app.manifest</ApplicationManifest>
   </PropertyGroup>
 
