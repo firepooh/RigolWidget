@@ -17,19 +17,25 @@ public sealed class Dp832
 
     private static string Ch(int channel) => "CH" + channel;
 
+    /// <summary>장비 식별 문자열(*IDN?)을 읽는다.</summary>
+    public bool TryGetIdentity(out string idn)
+        => _conn.Query("*IDN?", out idn) && !string.IsNullOrWhiteSpace(idn);
+
     // ---- 설정(Write) ----
 
-    /// <summary>출력 전압 설정(V). 범위 0~30V로 클램프.</summary>
+    // 상한 클램프는 호출부(모델 정격 기반)에서 수행하고, 여기선 음수만 방지한다.
+
+    /// <summary>출력 전압 설정(V).</summary>
     public bool SetVoltage(int channel, double volts)
     {
-        volts = Math.Clamp(volts, 0, 30);
+        volts = Math.Max(0, volts);
         return _conn.Write($":SOUR{channel}:VOLT {volts.ToString("0.000", CultureInfo.InvariantCulture)}");
     }
 
-    /// <summary>출력 전류 리미트 설정(A). 범위 0~3A로 클램프.</summary>
+    /// <summary>출력 전류 리미트 설정(A).</summary>
     public bool SetCurrent(int channel, double amps)
     {
-        amps = Math.Clamp(amps, 0, 3);
+        amps = Math.Max(0, amps);
         return _conn.Write($":SOUR{channel}:CURR {amps.ToString("0.000", CultureInfo.InvariantCulture)}");
     }
 
@@ -41,10 +47,10 @@ public sealed class Dp832
     public bool SetOcp(int channel, bool on)
         => _conn.Write($":OUTP:OCP {Ch(channel)},{(on ? "ON" : "OFF")}");
 
-    /// <summary>OCP 전류 임계값(A) 설정. 범위 0~3.3A로 클램프(DP832 스펙).</summary>
+    /// <summary>OCP 전류 임계값(A) 설정.</summary>
     public bool SetOcpValue(int channel, double amps)
     {
-        amps = Math.Clamp(amps, 0, 3.3);
+        amps = Math.Max(0, amps);
         return _conn.Write($":OUTP:OCP:VAL {Ch(channel)},{amps.ToString("0.000", CultureInfo.InvariantCulture)}");
     }
 
@@ -52,10 +58,10 @@ public sealed class Dp832
     public bool SetOvp(int channel, bool on)
         => _conn.Write($":OUTP:OVP {Ch(channel)},{(on ? "ON" : "OFF")}");
 
-    /// <summary>OVP 전압 임계값(V) 설정. 범위 0.01~33V로 클램프(DP832 스펙).</summary>
+    /// <summary>OVP 전압 임계값(V) 설정.</summary>
     public bool SetOvpValue(int channel, double volts)
     {
-        volts = Math.Clamp(volts, 0.01, 33);
+        volts = Math.Max(0.01, volts);
         return _conn.Write($":OUTP:OVP:VAL {Ch(channel)},{volts.ToString("0.000", CultureInfo.InvariantCulture)}");
     }
 

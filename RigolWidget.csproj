@@ -14,8 +14,8 @@
     <SelfContained>false</SelfContained>
     <AssemblyName>RigolWidget</AssemblyName>
     <RootNamespace>RigolWidget</RootNamespace>
-    <ApplicationIcon></ApplicationIcon>
-    <Version>1.1.0</Version>
+    <ApplicationIcon>Assets\app.ico</ApplicationIcon>
+    <Version>1.2.0</Version>
     <ApplicationManifest>app.manifest</ApplicationManifest>
   </PropertyGroup>
 
@@ -28,6 +28,11 @@
   <!-- 임베드 폰트: DSEG7 Classic Bold (7세그먼트, SIL OFL) -->
   <ItemGroup>
     <Resource Include="Fonts\*.ttf" />
+  </ItemGroup>
+
+  <!-- 앱 아이콘 리소스 (Window.Icon / 작업표시줄용) -->
+  <ItemGroup>
+    <Resource Include="Assets\app.ico" />
   </ItemGroup>
 
 </Project>

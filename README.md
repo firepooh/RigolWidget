@@ -1,11 +1,12 @@
 # RigolWidget
 
-Windows 바탕화면에 항상 떠 있는 **RIGOL DP832 전원공급기 제어 위젯**입니다. RIGOL 순정 PC 소프트웨어(Ultra Power)에서 그래프와 CH3를 걷어내고, 실사용에 필요한 **CH1·CH2 제어와 모니터링**만 남긴 초경량 위젯입니다. USB(VISA/SCPI)로 장비와 통신합니다.
+Windows 바탕화면에 항상 떠 있는 **RIGOL DP800 시리즈 전원공급기 제어 위젯**입니다. RIGOL 순정 PC 소프트웨어(Ultra Power)에서 그래프와 CH3를 걷어내고, 실사용에 필요한 **CH1·CH2 제어와 모니터링**만 남긴 초경량 위젯입니다. USB(VISA/SCPI)로 장비와 통신하며, 접속 시 `*IDN?`로 모델을 자동 인식해 타이틀·정격 범위를 맞춥니다.
 
 ![RigolWidget 메인 위젯](docs/screenshot.png)
 
 ## 기능
 
+- **모델 자동 인식** — 접속 시 `*IDN?`로 모델을 읽어 타이틀 표시와 채널별 전압/전류 정격을 자동 설정 (DP832·DP831·DP821·DP811 및 A 변형)
 - **실시간 측정** — CH1·CH2의 전압/전류를 7세그먼트(VFD) 디스플레이로 표시
 - **CV/CC 모드 표시** — 장비의 현재 동작 모드(정전압/정전류)를 실시간 반영
 - **출력 ON/OFF** — 채널별 세로 토글 스위치
@@ -56,7 +57,7 @@ Windows 바탕화면에 항상 떠 있는 **RIGOL DP832 전원공급기 제어 �
 
 - **Windows 10/11 (x64)**
 - **VISA 런타임** — [NI-VISA](https://www.ni.com/visa) 등. `visa32.dll`을 통해 장비와 통신하므로 반드시 필요합니다.
-- **RIGOL DP832 / DP832A** (USB 연결)
+- **RIGOL DP800 시리즈** (USB 연결) — DP832/DP832A 기준 개발, DP831·DP821(및 A 변형)은 모델 인식으로 정격 자동 적용, DP811(A)은 단일 채널로 표시. (DP700 시리즈는 명령셋이 달라 미지원)
 - 프레임워크 의존 버전 실행 시 [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0)
 
 ## 다운로드

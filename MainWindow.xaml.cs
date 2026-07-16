@@ -29,6 +29,9 @@ public partial class MainWindow : Window
     private char _popField;   // 'V' | 'A'
     private bool _mini;       // 미니창 모드
 
+    private Dp800Model _model = Dp800Models.Default;  // 감지된 장비 모델(정격)
+    private bool _identified;                          // *IDN? 식별 완료 여부
+
     // 휠 조작 디바운스: 조작 중엔 SET 표시만 갱신(깜빡임), 멈추면 장비로 전송
     private readonly DispatcherTimer _wheelTimer;
     private ChannelUi? _wheelCh;
@@ -117,6 +120,10 @@ public partial class MainWindow : Window
         {
             if (_dev.IsConnected)
             {
+                // (재)접속 직후 최초 1회: 모델 식별(*IDN?) → 타이틀·정격 반영.
+                if (!_identified)
+                    IdentifyModel();
+
                 // _pollTick==0 은 (재)접속 직후 → 즉시 전체 동기화.
                 bool fullSync = (_pollTick % 4) == 0;
                 _pollTick++;
@@ -124,6 +131,7 @@ public partial class MainWindow : Window
                 foreach (var c in _channels)
                 {
                     if (token.IsCancellationRequested) break;
+                    if (c.Channel == 2 && !_model.HasCh2) continue;  // 단일 채널 모델은 CH2 폴링 생략
                     if (fullSync) FullSyncChannel(c);
                     else FastPollChannel(c);
                 }
@@ -132,6 +140,35 @@ public partial class MainWindow : Window
             try { await Task.Delay(1000, token); }
             catch (TaskCanceledException) { break; }
         }
+    }
+
+    /// <summary>*IDN?로 모델을 식별해 타이틀·정격·채널 표시를 반영한다(최초 1회).</summary>
+    private void IdentifyModel()
+    {
+        if (!_dev.TryGetIdentity(out string idn))
+            return;   // 실패 시 다음 폴링에서 재시도
+
+        var model = Dp800Models.FromIdn(idn);
+        _identified = true;
+        DebugLog.Write($"모델 식별: {model.Name} (IDN: {idn.Trim()})");
+
+        Dispatcher.Invoke(() => ApplyModel(model));
+    }
+
+    /// <summary>감지된 모델을 UI에 반영: 타이틀 라벨, 채널 정격, CH2 표시 여부.</summary>
+    private void ApplyModel(Dp800Model model)
+    {
+        _model = model;
+        ModelLabel.Text = model.Name;
+
+        _channels[0].Rating = model.Ch1;
+        _channels[1].Rating = model.Ch2 ?? model.Ch1;
+
+        // 단일 채널 모델은 CH2 관련 UI 숨김(전체·미니).
+        var ch2Vis = model.HasCh2 ? Visibility.Visible : Visibility.Collapsed;
+        Ch2Row.Visibility = ch2Vis;
+        RowDivider.Visibility = ch2Vis;
+        MiniCh2Cell.Visibility = ch2Vis;
     }
 
     /// <summary>변경됐을 때만 대입 — 동일 값 재대입으로 인한 불필요한 렌더 무효화 방지.</summary>
@@ -237,7 +274,10 @@ public partial class MainWindow : Window
     private void OnConnectionChanged(bool connected)
     {
         if (connected)
-            _pollTick = 0;   // (재)접속 직후 다음 폴링에서 즉시 전체 동기화
+        {
+            _pollTick = 0;      // (재)접속 직후 다음 폴링에서 즉시 전체 동기화
+            _identified = false; // 재접속 시 모델 재식별
+        }
         Dispatcher.InvokeAsync(() => UpdateConnectionUi(connected));
     }
 
@@ -449,7 +489,8 @@ public partial class MainWindow : Window
             _wheelCh = null;
         }
 
-        value = Math.Round(Math.Clamp(value, 0, field == 'V' ? 30 : 3), 3);
+        double max = field == 'V' ? c.Rating.VMax : c.Rating.IMax;
+        value = Math.Round(Math.Clamp(value, 0, max), 3);
         c.LastLocalSet = DateTime.UtcNow;
 
         if (field == 'V') c.SetV = value;
@@ -467,13 +508,13 @@ public partial class MainWindow : Window
 
         if (kind == "OCP")
         {
-            v = Math.Clamp(v, 0, 3.3);
+            v = Math.Clamp(v, 0, c.Rating.OcpMax);
             box.Text = v.ToString("0.000", CultureInfo.InvariantCulture);
             Task.Run(() => _dev.SetOcpValue(c.Channel, v));
         }
         else
         {
-            v = Math.Clamp(v, 0.01, 33);
+            v = Math.Clamp(v, 0.01, c.Rating.OvpMax);
             box.Text = v.ToString("0.00", CultureInfo.InvariantCulture);
             Task.Run(() => _dev.SetOvpValue(c.Channel, v));
         }
@@ -523,7 +564,8 @@ public partial class MainWindow : Window
         double cur = _wheelCh == c && _wheelField == field
             ? _wheelValue
             : (field == 'V' ? c.SetV : c.SetA);
-        double value = Math.Round(Math.Clamp(cur + (e.Delta > 0 ? step : -step), 0, field == 'V' ? 30 : 3), 3);
+        double max = field == 'V' ? c.Rating.VMax : c.Rating.IMax;
+        double value = Math.Round(Math.Clamp(cur + (e.Delta > 0 ? step : -step), 0, max), 3);
 
         // SET 표시만 갱신 + 깜빡임. 장비 전송은 조작이 멈춘 뒤(타이머).
         _wheelCh = c;
@@ -783,5 +825,6 @@ public partial class MainWindow : Window
         public double SetV;
         public double SetA;
         public DateTime LastLocalSet = DateTime.MinValue;
+        public ChannelRating Rating = new(30, 3, 33, 3.3);  // 기본 DP832 CH 정격
     }
 }
