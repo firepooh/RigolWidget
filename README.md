@@ -120,8 +120,8 @@ claude mcp add --transport http rigol http://127.0.0.1:7735/
 
 | 파일 | 크기 | 조건 |
 |---|---|---|
-| `RigolWidget-standalone.exe` | ~90MB | .NET 런타임 포함 (VISA 런타임만 있으면 실행) |
-| `RigolWidget.exe` | ~2MB | [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0) + [ASP.NET Core 8 Runtime](https://dotnet.microsoft.com/download/dotnet/8.0) 필요 |
+| `RigolWidget-standalone.exe` | ~80MB | .NET 런타임 포함 (VISA 런타임만 있으면 실행) |
+| `RigolWidget.exe` | ~4MB | [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0) + [ASP.NET Core 8 Runtime](https://dotnet.microsoft.com/download/dotnet/8.0) 필요 |
 
 두 버전 모두 별도로 **VISA 런타임(NI-VISA 등)** 설치가 필요합니다. (경량 버전은 내장 MCP 서버 때문에 ASP.NET Core 런타임도 필요하며, standalone 버전엔 모두 포함되어 있습니다.)
 
