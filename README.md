@@ -13,6 +13,7 @@ Windows 바탕화면에 항상 떠 있는 **RIGOL DP800 시리즈 전원공급�
 - **전압/전류 설정** — 측정값 클릭(팝업) 또는 마우스 휠로 직접 조정
 - **보호 기능** — OCP(과전류)·OCV(과전압, SCPI OVP) 활성화 및 임계값 설정, 트립(TRIP) 발생 시 경고 표시·해제
 - **연결 자동 복구** — 운용 중 USB가 끊겨도 마지막 장비로 계속 재접속 시도
+- **AI 제어 (MCP 서버 내장)** — Claude 등 MCP 클라이언트가 자연어로 전원공급기를 읽고 제어 (기본 비활성, 옵트인)
 - **위젯 UX** — 항상 위 고정, 프레임리스 드래그 이동, 투명도 조절, 모니터 가장자리 자석 스냅
 
 ## 사용법
@@ -76,16 +77,53 @@ Windows 바탕화면에 항상 떠 있는 **RIGOL DP800 시리즈 전원공급�
 - 🟡 **DP811(A)**: 단일 채널 모델이라 CH1만 표시됩니다(CH2 숨김).
 - ❌ **DP700 시리즈**: RS232 기반의 다른 명령셋을 사용해 지원하지 않습니다.
 
+## AI 제어 (내장 MCP 서버)
+
+위젯에 [MCP(Model Context Protocol)](https://modelcontextprotocol.io) 서버가 내장되어 있어, Claude 같은 AI 클라이언트가 자연어로 전원공급기를 읽고 제어할 수 있습니다. *"CH1을 3.3V로 설정해줘"*, *"지금 전류 얼마야?"*, *"전부 출력 꺼줘"* 처럼요.
+
+**실행 중인 위젯과 같은 USB 세션을 공유**하므로 세션 충돌이 없고, AI가 바꾼 값은 위젯 화면에도 곧바로 반영됩니다.
+
+### 켜는 법
+
+1. 위젯 타이틀바 **우클릭 → "MCP 서버"** 체크 → 로컬 서버가 `http://127.0.0.1:7735/` 에서 시작됩니다.
+2. AI가 출력·전압을 **변경**하게 하려면 **"MCP 제어 허용"** 도 켜세요. (꺼두면 읽기 전용 — 조회만 가능)
+3. "MCP 주소 복사"로 엔드포인트 URL을 복사해 MCP 클라이언트에 등록합니다.
+
+예) Claude Code에 등록:
+```
+claude mcp add --transport http rigol http://127.0.0.1:7735/
+```
+
+### 안전장치
+
+- **기본 비활성**: MCP 서버도, 제어 허용도 모두 꺼진 상태로 시작합니다(명시적 옵트인).
+- **로컬 전용**: `127.0.0.1` 에만 바인딩되어 외부에서 접근할 수 없습니다.
+- **정격 클램프**: 모든 설정값은 감지된 모델 정격 범위로 제한됩니다.
+- **로그**: MCP가 보낸 모든 쓰기 명령은 `%LOCALAPPDATA%\RigolWidget\rigolwidget.log` 에 기록됩니다.
+
+### 제공 도구(tool)
+
+| 도구 | 설명 |
+|---|---|
+| `get_status` | 전 채널 측정값·설정값·출력·CV/CC·OCP/OVP·트립 상태 조회 |
+| `get_identity` | 모델명·IDN 조회 |
+| `set_voltage` / `set_current` | 채널 전압 / 전류 리미트 설정 |
+| `set_output` | 채널 출력 ON/OFF |
+| `set_ocp` / `set_ovp` | 과전류 / 과전압 보호 활성·임계값 설정 |
+| `clear_trip` | 보호 트립(OCP/OVP) 해제 |
+
+> 조회 도구(`get_*`)는 항상 동작하고, 나머지 **제어 도구는 "MCP 제어 허용"이 켜져 있을 때만** 실행됩니다(꺼져 있으면 거부).
+
 ## 다운로드
 
 [Releases](https://github.com/firepooh/RigolWidget/releases)에서 받을 수 있습니다:
 
 | 파일 | 크기 | 조건 |
 |---|---|---|
-| `RigolWidget-standalone.exe` | ~70MB | .NET 런타임 포함 (VISA 런타임만 있으면 실행) |
-| `RigolWidget.exe` | ~2MB | [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0) 필요 |
+| `RigolWidget-standalone.exe` | ~90MB | .NET 런타임 포함 (VISA 런타임만 있으면 실행) |
+| `RigolWidget.exe` | ~2MB | [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0) + [ASP.NET Core 8 Runtime](https://dotnet.microsoft.com/download/dotnet/8.0) 필요 |
 
-두 버전 모두 별도로 **VISA 런타임(NI-VISA 등)** 설치가 필요합니다.
+두 버전 모두 별도로 **VISA 런타임(NI-VISA 등)** 설치가 필요합니다. (경량 버전은 내장 MCP 서버 때문에 ASP.NET Core 런타임도 필요하며, standalone 버전엔 모두 포함되어 있습니다.)
 
 ## 빌드
 

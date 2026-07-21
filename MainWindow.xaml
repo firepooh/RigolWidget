@@ -118,6 +118,15 @@
                             <Separator/>
                             <MenuItem x:Name="PinMenu" Header="항상 위에 고정" IsCheckable="True"
                                       IsChecked="True" Click="PinMenu_Click"/>
+                            <Separator/>
+                            <MenuItem x:Name="McpServerMenu" Header="MCP 서버" IsCheckable="True"
+                                      Click="McpServerMenu_Click"/>
+                            <MenuItem x:Name="McpControlMenu" Header="MCP 제어 허용" IsCheckable="True"
+                                      Click="McpControlMenu_Click"
+                                      ToolTip="켜면 AI가 출력·전압·전류를 변경할 수 있습니다. 꺼두면 읽기 전용."/>
+                            <MenuItem x:Name="McpCopyMenu" Header="MCP 주소 복사" Click="McpCopyMenu_Click"
+                                      IsEnabled="False"/>
+                            <Separator/>
                             <MenuItem Header="닫기" Click="CloseMenu_Click"/>
                         </ContextMenu>
                     </Border.ContextMenu>

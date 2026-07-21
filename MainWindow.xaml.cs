@@ -7,6 +7,7 @@ using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Shapes;
 using System.Windows.Threading;
+using RigolWidget.Mcp;
 using RigolWidget.Services;
 using RigolWidget.Visa;
 
@@ -31,6 +32,10 @@ public partial class MainWindow : Window
 
     private Dp800Model _model = Dp800Models.Default;  // 감지된 장비 모델(정격)
     private bool _identified;                          // *IDN? 식별 완료 여부
+
+    private readonly AppSettings _settings;           // 앱 설정(MCP 등)
+    private readonly RigolMcpContext _mcpContext;     // MCP 공유 컨텍스트
+    private readonly RigolMcpServer _mcpServer;       // 내장 MCP 서버
 
     // 휠 조작 디바운스: 조작 중엔 SET 표시만 갱신(깜빡임), 멈추면 장비로 전송
     private readonly DispatcherTimer _wheelTimer;
@@ -98,10 +103,26 @@ public partial class MainWindow : Window
         int plus = infoVer.IndexOf('+');
         VersionMenu.Header = $"RigolWidget v{(plus > 0 ? infoVer[..plus] : infoVer)}";
 
+        // 내장 MCP 서버 초기화(설정 로드).
+        _settings = AppSettings.Load();
+        _mcpContext = new RigolMcpContext(_dev)
+        {
+            ControlAllowed = _settings.McpAllowControl,
+            Model = _model,
+        };
+        _mcpContext.OnCommand = OnMcpCommand;
+        _mcpServer = new RigolMcpServer(_mcpContext);
+        InitMcpMenu();
+
         _conn.ConnectionChanged += OnConnectionChanged;
         UpdateConnectionUi(_conn.IsConnected);
 
-        Loaded += (_, _) => StartPolling();
+        Loaded += async (_, _) =>
+        {
+            StartPolling();
+            if (_settings.McpEnabled)
+                await StartMcpAsync();
+        };
         Closed += OnClosed;
     }
 
@@ -159,6 +180,7 @@ public partial class MainWindow : Window
     private void ApplyModel(Dp800Model model)
     {
         _model = model;
+        _mcpContext.Model = model;   // MCP 도구의 정격 클램프도 동일 모델 사용
         ModelLabel.Text = model.Name;
 
         _channels[0].Rating = model.Ch1;
@@ -763,6 +785,87 @@ public partial class MainWindow : Window
 
     private void CloseMenu_Click(object sender, RoutedEventArgs e) => Close();
 
+    // ================= 내장 MCP 서버 =================
+
+    private void InitMcpMenu()
+    {
+        McpControlMenu.IsChecked = _settings.McpAllowControl;
+        McpServerMenu.IsChecked = _settings.McpEnabled;
+        UpdateMcpMenuState();
+    }
+
+    private void UpdateMcpMenuState()
+    {
+        bool running = _mcpServer.IsRunning;
+        McpServerMenu.IsChecked = running;
+        McpServerMenu.Header = running ? $"MCP 서버 (켜짐 · :{_mcpServer.Port})" : "MCP 서버";
+        McpCopyMenu.IsEnabled = running;
+    }
+
+    private async void McpServerMenu_Click(object sender, RoutedEventArgs e)
+    {
+        if (McpServerMenu.IsChecked)
+            await StartMcpAsync();
+        else
+            await StopMcpAsync();
+    }
+
+    private async Task StartMcpAsync()
+    {
+        var (ok, error) = await _mcpServer.StartAsync(_settings.McpPort);
+        if (ok)
+        {
+            _settings.McpEnabled = true;
+            _settings.Save();
+        }
+        else
+        {
+            MessageBox.Show($"MCP 서버를 시작할 수 없습니다 (포트 {_settings.McpPort}).\n{error}",
+                "RigolWidget", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+        UpdateMcpMenuState();
+    }
+
+    private async Task StopMcpAsync()
+    {
+        await _mcpServer.StopAsync();
+        _settings.McpEnabled = false;
+        _settings.Save();
+        UpdateMcpMenuState();
+    }
+
+    private void McpControlMenu_Click(object sender, RoutedEventArgs e)
+    {
+        bool allow = McpControlMenu.IsChecked;
+        _mcpContext.ControlAllowed = allow;
+        _settings.McpAllowControl = allow;
+        _settings.Save();
+        DebugLog.Write($"MCP 제어 허용 = {allow}");
+    }
+
+    private void McpCopyMenu_Click(object sender, RoutedEventArgs e)
+    {
+        if (!_mcpServer.IsRunning) return;
+        try
+        {
+            Clipboard.SetText(_mcpServer.Url);
+            McpCopyMenu.Header = "MCP 주소 복사됨 ✓";
+            Dispatcher.BeginInvoke(new Action(async () =>
+            {
+                await Task.Delay(1500);
+                McpCopyMenu.Header = "MCP 주소 복사";
+            }));
+        }
+        catch { /* 클립보드 접근 실패 무시 */ }
+    }
+
+    /// <summary>MCP발 쓰기 명령 콜백(백그라운드 스레드): 로그 + UI 즉시 재동기화 예약.</summary>
+    private void OnMcpCommand(string message)
+    {
+        DebugLog.Write(message);
+        _pollTick = 0;   // 다음 폴링에서 전체 동기화 → UI에 즉시 반영
+    }
+
     private void SetPinned(bool pinned)
     {
         Topmost = pinned;
@@ -775,10 +878,11 @@ public partial class MainWindow : Window
 
     private void Close_Click(object sender, MouseButtonEventArgs e) => Close();
 
-    private void OnClosed(object? sender, EventArgs e)
+    private async void OnClosed(object? sender, EventArgs e)
     {
         CommitWheel();   // 미전송 휠 조작값 플러시
         _pollCts?.Cancel();
+        await _mcpServer.StopAsync();
         _conn.ConnectionChanged -= OnConnectionChanged;
         _conn.Dispose();
         _rm.Dispose();

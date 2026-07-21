@@ -15,7 +15,7 @@
     <AssemblyName>RigolWidget</AssemblyName>
     <RootNamespace>RigolWidget</RootNamespace>
     <ApplicationIcon>Assets\app.ico</ApplicationIcon>
-    <Version>1.2.1</Version>
+    <Version>1.3.0</Version>
     <ApplicationManifest>app.manifest</ApplicationManifest>
   </PropertyGroup>
 
@@ -23,6 +23,12 @@
   <ItemGroup>
     <Using Remove="System.Windows.Forms" />
     <Using Remove="System.Drawing" />
+  </ItemGroup>
+
+  <!-- 내장 MCP 서버 (Streamable HTTP, 127.0.0.1) -->
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="ModelContextProtocol.AspNetCore" Version="1.4.1" />
   </ItemGroup>
 
   <!-- 임베드 폰트: DSEG7 Classic Bold (7세그먼트, SIL OFL) -->
