@@ -123,7 +123,38 @@ claude mcp list
 - 등록 직후 실행 중이던 Claude Code 세션에는 도구가 바로 안 붙습니다 → **Claude Code를 재시작**하면 `rigol` 도구가 로드됩니다.
 - 특정 프로젝트에서만 쓰려면 `--scope user` 를 빼면 됩니다(그 폴더 전용). 잘못 등록했으면 `claude mcp remove rigol` 로 지우고 다시 등록하세요.
 
-> **Claude Desktop** 등 다른 MCP 클라이언트도 "HTTP(Streamable HTTP) 방식, URL `http://127.0.0.1:7735/`" 로 등록하면 동일하게 동작합니다.
+#### Claude Desktop 앱을 쓰는 경우
+
+Claude Desktop은 Claude Code(CLI)와 **설정이 분리**되어 있어 위 `claude mcp add` 로 등록해도 Desktop에는 보이지 않습니다. Desktop 설정 파일에 따로 추가해야 합니다.
+
+Desktop에서 HTTP 서버를 붙이는 방법은 두 가지입니다.
+
+**방법 A — 커넥터 UI (Node 불필요, 권장)**
+
+1. Claude Desktop → **설정 → 커넥터 → "사용자 지정 커넥터 추가"**
+2. 이름 `rigol`, URL `http://127.0.0.1:7735/` 입력 후 추가
+3. 위젯에서 "MCP 서버"가 켜져 있으면 바로 연결됩니다.
+
+**방법 B — 구성 파일 + `mcp-remote` 브리지 (Node.js 필요)**
+
+Desktop의 로컬 MCP 서버는 **stdio(명령어) 방식**이라, HTTP 서버인 이 위젯은 [`mcp-remote`](https://www.npmjs.com/package/mcp-remote) 브리지를 거칩니다. **[Node.js](https://nodejs.org) 설치가 필요**합니다(없으면 이 방법은 동작하지 않음 → 방법 A 사용).
+
+1. Claude Desktop → **설정 → 개발자 → "구성 편집"** 으로 `%APPDATA%\Claude\claude_desktop_config.json` 을 엽니다.
+2. `mcpServers` 에 아래 `rigol` 항목을 추가합니다(다른 항목이 있으면 콤마로 이어서):
+
+   ```json
+   {
+     "mcpServers": {
+       "rigol": {
+         "command": "npx",
+         "args": ["mcp-remote", "http://127.0.0.1:7735/"]
+       }
+     }
+   }
+   ```
+3. 저장 후 **Claude Desktop을 재시작**하면 rigol 도구가 로드됩니다.
+
+> 요약: **HTTP를 직접 지원하는 클라이언트**(Claude Code, Desktop 커넥터 UI)는 URL `http://127.0.0.1:7735/` 로 바로, **stdio만 지원**하면 `mcp-remote` 브리지(Node 필요)로 연결합니다.
 
 ### 3단계 — 써보기
 
@@ -202,6 +233,13 @@ git push origin v1.0.0
 :OUTP:OCP CHn,ON|OFF       # OCP on/off     / :OUTP:OCP:VAL CHn,<a> / :OUTP:OCP:ALAR? CHn / :OUTP:OCP:CLEAR CHn
 :OUTP:OVP CHn,ON|OFF       # OVP(OCV) on/off / :OUTP:OVP:VAL CHn,<v> / :OUTP:OVP:ALAR? CHn / :OUTP:OVP:CLEAR CHn
 ```
+
+## 향후 계획 (로드맵)
+
+- [ ] **멀티 장비 동시 사용 (MCP)** — 파워서플라이 여러 대를 각각의 위젯으로 동시에 띄우고 AI가 구분해 제어. 현재는 MCP 포트가 `7735` 고정이라 2대 이상 동시 실행 시 포트가 충돌하고, 서버가 자신을 모두 `RigolWidget`으로만 소개해 AI가 어느 장비인지 자동 구분하지 못함. 필요한 작업:
+  - 인스턴스별 포트 (빈 포트 자동 선택 / 시리얼 기반 / 장비별 설정)
+  - 장비 **별칭(라벨)** 지정 → 타이틀·`get_identity`·MCP serverInfo·도구 설명에 반영
+  - 각 위젯을 별칭 이름으로 등록 → *"벤치1 CH1 켜줘"* 처럼 라우팅, 그냥 *"CH1 켜줘"* 는 AI가 어느 장비인지 되물음
 
 ## 라이선스
 
