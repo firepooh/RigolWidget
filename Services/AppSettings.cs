@@ -4,16 +4,16 @@ using System.Text.Json;
 namespace RigolWidget.Services;
 
 /// <summary>
-/// 앱 설정(%APPDATA%\RigolWidget\settings.json). 현재는 내장 MCP 서버 관련 설정만 담는다.
-/// 저장 실패는 무시(치명적이지 않음).
+/// App settings (%APPDATA%\RigolWidget\settings.json). Currently holds only the embedded MCP server settings.
+/// Save failures are ignored (not fatal).
 /// </summary>
 public sealed class AppSettings
 {
-    // 내장 MCP 서버 사용 여부(기본 꺼짐 — 명시적 활성화 필요)
+    // Whether the embedded MCP server is enabled (off by default — requires explicit activation)
     public bool McpEnabled { get; set; }
-    // MCP 서버가 제어(쓰기) 명령을 허용하는지(기본 꺼짐 — 읽기 전용)
+    // Whether the MCP server allows control (write) commands (off by default — read-only)
     public bool McpAllowControl { get; set; }
-    // MCP 서버 포트(127.0.0.1 바인딩)
+    // MCP server port (bound to 127.0.0.1)
     public int McpPort { get; set; } = 7735;
 
     private static string Dir => Path.Combine(
@@ -34,7 +34,7 @@ public sealed class AppSettings
                 }
             }
         }
-        catch { /* 손상 시 기본값 */ }
+        catch { /* fall back to defaults if corrupted */ }
         return new AppSettings();
     }
 
@@ -46,6 +46,6 @@ public sealed class AppSettings
             File.WriteAllText(FilePath,
                 JsonSerializer.Serialize(this, new JsonSerializerOptions { WriteIndented = true }));
         }
-        catch { /* 저장 실패는 무시 */ }
+        catch { /* ignore save failures */ }
     }
 }

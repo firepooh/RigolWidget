@@ -4,9 +4,9 @@ using WinForms = System.Windows.Forms;
 namespace RigolWidget.Services;
 
 /// <summary>
-/// 창을 화면 모서리에 자석처럼 달라붙게 한다.
-/// 드래그 중 창이 작업영역 가장자리에서 SnapDistance 이내로 접근하면 딱 붙는다.
-/// 멀티모니터 지원(창이 걸친 화면 기준).
+/// Makes the window snap to screen edges like a magnet.
+/// While dragging, the window snaps when it comes within SnapDistance of a work-area edge.
+/// Multi-monitor support (based on the screen the window overlaps).
 /// </summary>
 public sealed class EdgeSnap
 {
@@ -23,14 +23,14 @@ public sealed class EdgeSnap
 
     private void OnLocationChanged(object? sender, EventArgs e)
     {
-        if (_adjusting) return;                 // 자기 자신이 만든 이동은 무시(재귀 방지)
+        if (_adjusting) return;                 // Ignore moves we caused ourselves (prevent recursion)
         if (_window.WindowState != WindowState.Normal) return;
 
         double w = _window.ActualWidth;
         double h = _window.ActualHeight;
         if (w <= 0 || h <= 0) return;
 
-        // 창 중심이 위치한 모니터의 작업영역(작업표시줄 제외)을 DIP로 변환.
+        // Convert the work area (excluding the taskbar) of the monitor containing the window center to DIP.
         var area = GetWorkAreaDip(_window.Left + w / 2, _window.Top + h / 2);
 
         double left = _window.Left;
@@ -53,7 +53,7 @@ public sealed class EdgeSnap
         }
     }
 
-    /// <summary>물리 픽셀 좌표를 받아 해당 모니터의 작업영역을 DIP(WPF 좌표)로 반환.</summary>
+    /// <summary>Takes physical pixel coordinates and returns that monitor's work area in DIP (WPF coordinates).</summary>
     private Rect GetWorkAreaDip(double dipX, double dipY)
     {
         var source = PresentationSource.FromVisual(_window);
@@ -64,11 +64,11 @@ public sealed class EdgeSnap
             sy = source.CompositionTarget.TransformToDevice.M22;
         }
 
-        // 창 중심의 물리 픽셀 위치로 모니터 선택.
+        // Select the monitor by the physical pixel position of the window center.
         int px = (int)(dipX * sx);
         int py = (int)(dipY * sy);
         var screen = WinForms.Screen.FromPoint(new System.Drawing.Point(px, py));
-        var wa = screen.WorkingArea;   // 물리 픽셀
+        var wa = screen.WorkingArea;   // physical pixels
 
         return new Rect(wa.Left / sx, wa.Top / sy, wa.Width / sx, wa.Height / sy);
     }

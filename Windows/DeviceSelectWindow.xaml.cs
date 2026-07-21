@@ -6,7 +6,7 @@ namespace RigolWidget.Windows;
 
 public partial class DeviceSelectWindow : Window
 {
-    /// <summary>선택되어 확정된 장비 리소스 문자열(연결 성공 시).</summary>
+    /// <summary>The selected/confirmed device resource string (on successful connection).</summary>
     public string? SelectedResource { get; private set; }
 
     public DeviceSelectWindow()
@@ -18,13 +18,13 @@ public partial class DeviceSelectWindow : Window
     private void RefreshDevices()
     {
         DeviceList.Items.Clear();
-        StatusText.Text = "USB 장비 검색 중...";
-        EmptyHint.Text = "USB 장비를 찾는 중...";
+        StatusText.Text = "Searching USB devices...";
+        EmptyHint.Text = "Searching for USB devices...";
         EmptyHint.Visibility = Visibility.Visible;
 
         try
         {
-            // 임시 RM으로 목록만 조회(연결 시 App이 별도 RM 생성).
+            // Use a temporary RM just to list devices (the App creates its own RM on connect).
             using var rm = new VisaResourceManager();
             var devices = rm.FindUsbInstruments();
 
@@ -35,17 +35,17 @@ public partial class DeviceSelectWindow : Window
             {
                 DeviceList.SelectedIndex = 0;
                 EmptyHint.Visibility = Visibility.Collapsed;
-                StatusText.Text = $"{DeviceList.Items.Count}개 USB 장비 발견";
+                StatusText.Text = $"{DeviceList.Items.Count} USB device(s) found";
             }
             else
             {
-                EmptyHint.Text = "USB 장비가 없습니다. 연결/전원을 확인 후 새로고침하세요.";
-                StatusText.Text = "장비 없음";
+                EmptyHint.Text = "No USB devices. Check the connection/power and refresh.";
+                StatusText.Text = "No devices";
             }
         }
         catch (VisaException ex)
         {
-            EmptyHint.Text = "VISA 런타임을 사용할 수 없습니다.";
+            EmptyHint.Text = "VISA runtime is not available.";
             StatusText.Text = ex.Message;
         }
     }
@@ -60,11 +60,11 @@ public partial class DeviceSelectWindow : Window
     {
         if (DeviceList.SelectedItem is not string resource)
         {
-            StatusText.Text = "장비를 선택하세요.";
+            StatusText.Text = "Please select a device.";
             return;
         }
 
-        // 실제 연결 검증은 메인 창의 RigolConnection이 담당. 여기선 선택만 확정.
+        // Actual connection is validated by the main window RigolConnection; here we only confirm the selection.
         SelectedResource = resource;
         DialogResult = true;
         Close();

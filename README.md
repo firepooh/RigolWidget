@@ -1,5 +1,12 @@
 # RigolWidget
 
+[![Release](https://img.shields.io/github/v/release/firepooh/RigolWidget)](https://github.com/firepooh/RigolWidget/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/firepooh/RigolWidget/total)](https://github.com/firepooh/RigolWidget/releases)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11-blue)
+
+**한국어** · [English](README.en.md)
+
 Windows 바탕화면에 항상 떠 있는 **RIGOL DP800 시리즈 전원공급기 제어 위젯**입니다. RIGOL 순정 PC 소프트웨어(Ultra Power)에서 그래프와 CH3를 걷어내고, 실사용에 필요한 **CH1·CH2 제어와 모니터링**만 남긴 초경량 위젯입니다. USB(VISA/SCPI)로 장비와 통신하며, 접속 시 `*IDN?`로 모델을 자동 인식해 타이틀·정격 범위를 맞춥니다.
 
 ![RigolWidget 메인 위젯](docs/screenshot.png)
@@ -135,6 +142,8 @@ Desktop에서 HTTP 서버를 붙이는 방법은 두 가지입니다.
 2. 이름 `rigol`, URL `http://127.0.0.1:7735/` 입력 후 추가
 3. 위젯에서 "MCP 서버"가 켜져 있으면 바로 연결됩니다.
 
+> 참고: 일부 조직(회사) 관리 계정은 사용자 지정 커넥터 추가가 비활성일 수 있습니다. "사용자 지정 커넥터 추가"가 안 보이면 Claude Code(이미 동작)를 쓰거나 아래 방법 B를 사용하세요.
+
 **방법 B — 구성 파일 + `mcp-remote` 브리지 (Node.js 필요)**
 
 Desktop의 로컬 MCP 서버는 **stdio(명령어) 방식**이라, HTTP 서버인 이 위젯은 [`mcp-remote`](https://www.npmjs.com/package/mcp-remote) 브리지를 거칩니다. **[Node.js](https://nodejs.org) 설치가 필요**합니다(없으면 이 방법은 동작하지 않음 → 방법 A 사용).
@@ -241,8 +250,10 @@ git push origin v1.0.0
   - 장비 **별칭(라벨)** 지정 → 타이틀·`get_identity`·MCP serverInfo·도구 설명에 반영
   - 각 위젯을 별칭 이름으로 등록 → *"벤치1 CH1 켜줘"* 처럼 라우팅, 그냥 *"CH1 켜줘"* 는 AI가 어느 장비인지 되물음
 
-## 라이선스
+## 라이선스 / 고지
 
 [MIT](LICENSE)
 
 7세그먼트 폰트 [DSEG](https://github.com/keshikan/DSEG)는 SIL Open Font License 1.1을 따릅니다.
+
+> **비공식 프로젝트 고지**: 이 프로젝트는 취미로 만든 **비공식** 도구로, RIGOL Technologies와 제휴·후원·보증 관계가 없습니다. "RIGOL", "DP832" 등은 각 소유자의 상표입니다. 전원공급기는 실제 하드웨어를 제어하므로, 사용에 따른 위험은 사용자 책임입니다(MIT 라이선스의 무보증 조항 참조).

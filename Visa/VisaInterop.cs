@@ -4,20 +4,20 @@ using System.Text;
 namespace RigolWidget.Visa;
 
 /// <summary>
-/// visa32.dll(VISA C API) 직접 P/Invoke 바인딩.
-/// 별도 NuGet/COM 의존성 없이 시스템에 설치된 VISA 런타임(NI-VISA 등)을 사용한다.
-/// x64 프로세스에서는 System32\visa32.dll(64bit 구현)이 로드된다.
+/// Direct P/Invoke bindings to visa32.dll (the VISA C API).
+/// Uses the VISA runtime installed on the system (e.g. NI-VISA) without any extra NuGet/COM dependency.
+/// In an x64 process, System32\visa32.dll (the 64-bit implementation) is loaded.
 /// </summary>
 internal static class VisaInterop
 {
     private const string Dll = "visa32.dll";
 
-    // ViStatus 성공 판정: VI_SUCCESS(0) 및 양수 경고는 성공, 음수는 오류.
+    // ViStatus success test: VI_SUCCESS(0) and positive warnings are success, negatives are errors.
     public const int VI_SUCCESS = 0;
     public const int VI_NULL = 0;
 
     // Attributes
-    public const int VI_ATTR_TMO_VALUE = 0x3FFF001A;  // 밀리초 단위 I/O 타임아웃
+    public const int VI_ATTR_TMO_VALUE = 0x3FFF001A;  // I/O timeout in milliseconds
 
     [DllImport(Dll)]
     public static extern int viOpenDefaultRM(out int sesn);
@@ -49,7 +49,7 @@ internal static class VisaInterop
     public static bool Success(int status) => status >= 0;
 }
 
-/// <summary>VISA 호출 실패 시 던지는 예외.</summary>
+/// <summary>Exception thrown when a VISA call fails.</summary>
 public sealed class VisaException : Exception
 {
     public int Status { get; }

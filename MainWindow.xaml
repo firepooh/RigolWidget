@@ -8,16 +8,16 @@
         WindowStartupLocation="CenterScreen" FontFamily="Segoe UI">
 
     <Window.Resources>
-        <!-- DSEG7 7세그먼트 폰트 (임베드 리소스) -->
+        <!-- DSEG7 seven-segment font (embedded resource) -->
         <FontFamily x:Key="Dseg7">pack://application:,,,/Fonts/#DSEG7 Classic</FontFamily>
 
-        <!-- VFD 패널 배경 -->
+        <!-- VFD panel background -->
         <RadialGradientBrush x:Key="VfdBg" GradientOrigin="0.5,0" Center="0.5,0" RadiusX="1.2" RadiusY="1.2">
             <GradientStop Color="#0A1512" Offset="0"/>
             <GradientStop Color="#050A09" Offset="1"/>
         </RadialGradientBrush>
 
-        <!-- 채널별 색 -->
+        <!-- Per-channel colors -->
         <SolidColorBrush x:Key="Ch1SegText" Color="#C9FFE0"/>
         <SolidColorBrush x:Key="Ch2SegText" Color="#DAF6FF"/>
         <SolidColorBrush x:Key="Ch1Unit" Color="#7DFFAF"/>
@@ -33,7 +33,7 @@
         <SolidColorBrush x:Key="ChipInactiveFg" Color="#5A6068"/>
         <SolidColorBrush x:Key="ChipInactiveBorder" Color="#1FFFFFFF"/>
 
-        <!-- 보호값 입력칸 -->
+        <!-- Protection value input box -->
         <Style x:Key="SmallInput" TargetType="TextBox">
             <Setter Property="FontFamily" Value="Consolas"/>
             <Setter Property="FontSize" Value="11"/>
@@ -61,14 +61,14 @@
             </Setter>
         </Style>
 
-        <!-- CV/CC 모드 칩 텍스트 -->
+        <!-- CV/CC mode chip text -->
         <Style x:Key="ModeChipText" TargetType="TextBlock">
             <Setter Property="FontWeight" Value="ExtraBold"/>
             <Setter Property="FontSize" Value="11"/>
             <Setter Property="HorizontalAlignment" Value="Center"/>
         </Style>
 
-        <!-- 팝업 스텝 버튼 -->
+        <!-- Popup step button -->
         <Style x:Key="StepButton" TargetType="Button">
             <Setter Property="Background" Value="{StaticResource InputBg}"/>
             <Setter Property="Foreground" Value="{StaticResource InputText}"/>
@@ -94,40 +94,40 @@
     </Window.Resources>
 
     <Grid>
-        <!-- 그림자 전용 배경판: 내용과 분리해 두어야 내용(측정값 텍스트 등)이
-             갱신될 때마다 창 전체가 그림자 셰이더를 다시 통과하지 않는다. -->
+        <!-- Shadow-only backing panel: kept separate from content so that when content
+             (measurement text, etc.) updates, the whole window does not re-run the shadow shader. -->
         <Border Background="{StaticResource CardBg}" CornerRadius="9" SnapsToDevicePixels="True">
             <Border.Effect>
                 <DropShadowEffect BlurRadius="34" ShadowDepth="10" Direction="270" Opacity="0.55" Color="Black"/>
             </Border.Effect>
         </Border>
 
-        <!-- 카드 (내용) -->
+        <!-- Card (content) -->
         <Border Background="Transparent" BorderBrush="{StaticResource CardBorder}"
                 BorderThickness="1" CornerRadius="9" SnapsToDevicePixels="True">
 
             <StackPanel>
-                <!-- ===== 타이틀바 (드래그 / 휠=투명도 / 우클릭=버전·메뉴) ===== -->
+                <!-- ===== Title bar (drag / wheel=opacity / right-click=version & menu) ===== -->
                 <Border x:Name="TitleBar" Height="20" Background="{StaticResource TitleBarBg}"
                         CornerRadius="9,9,0,0" MouseLeftButtonDown="TitleBar_MouseLeftButtonDown"
                         MouseWheel="TitleBar_MouseWheel"
-                        ToolTip="드래그: 이동 · 더블클릭: 미니창 · 휠: 투명도">
+                        ToolTip="Drag: move  ·  Double-click: mini  ·  Wheel: opacity">
                     <Border.ContextMenu>
                         <ContextMenu>
                             <MenuItem x:Name="VersionMenu" Header="RigolWidget" IsEnabled="False"/>
                             <Separator/>
-                            <MenuItem x:Name="PinMenu" Header="항상 위에 고정" IsCheckable="True"
+                            <MenuItem x:Name="PinMenu" Header="Always on Top" IsCheckable="True"
                                       IsChecked="True" Click="PinMenu_Click"/>
                             <Separator/>
-                            <MenuItem x:Name="McpServerMenu" Header="MCP 서버" IsCheckable="True"
+                            <MenuItem x:Name="McpServerMenu" Header="MCP Server" IsCheckable="True"
                                       Click="McpServerMenu_Click"/>
-                            <MenuItem x:Name="McpControlMenu" Header="MCP 제어 허용" IsCheckable="True"
+                            <MenuItem x:Name="McpControlMenu" Header="Allow MCP Control" IsCheckable="True"
                                       Click="McpControlMenu_Click"
-                                      ToolTip="켜면 AI가 출력·전압·전류를 변경할 수 있습니다. 꺼두면 읽기 전용."/>
-                            <MenuItem x:Name="McpCopyMenu" Header="MCP 주소 복사" Click="McpCopyMenu_Click"
+                                      ToolTip="When on, AI can change output/voltage/current. When off, read-only."/>
+                            <MenuItem x:Name="McpCopyMenu" Header="Copy MCP URL" Click="McpCopyMenu_Click"
                                       IsEnabled="False"/>
                             <Separator/>
-                            <MenuItem Header="닫기" Click="CloseMenu_Click"/>
+                            <MenuItem Header="Close" Click="CloseMenu_Click"/>
                         </ContextMenu>
                     </Border.ContextMenu>
                     <Grid Margin="8,0">
@@ -142,12 +142,12 @@
                                        FontWeight="Bold" FontSize="9"/>
                             <Ellipse x:Name="LiveDot" Width="5" Height="5" Margin="5,0,0,0"
                                      Fill="{StaticResource Ch1Accent}" VerticalAlignment="Center"/>
-                            <TextBlock x:Name="ConnText" Text="연결됨" Foreground="#6B7077"
+                            <TextBlock x:Name="ConnText" Text="Connected" Foreground="#6B7077"
                                        FontSize="8" Margin="5,0,0,0" VerticalAlignment="Center"/>
                         </StackPanel>
 
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                            <Button x:Name="PinButton" Click="Pin_Click" ToolTip="항상 위에 고정"
+                            <Button x:Name="PinButton" Click="Pin_Click" ToolTip="Always on Top"
                                     Background="Transparent" BorderThickness="0" Cursor="Hand"
                                     Padding="0" Margin="0,0,7,0" Width="14" Height="14">
                                 <Viewbox Width="11" Height="11">
@@ -166,17 +166,17 @@
                     </Grid>
                 </Border>
 
-                <!-- ===== 본문 (전체 모드) ===== -->
+                <!-- ===== Body (full mode) ===== -->
                 <StackPanel x:Name="FullBody" Margin="9,7">
 
-                    <!-- ===== CH1 행 ===== -->
+                    <!-- ===== CH1 row ===== -->
                     <Border Background="{StaticResource Ch1RowTint}" CornerRadius="5" Padding="8,3"
                             BorderBrush="{StaticResource Ch1Accent}" BorderThickness="2,0,0,0">
                         <StackPanel Orientation="Horizontal">
-                            <!-- 세로 출력 토글 (22x44, knob 16) -->
+                            <!-- Vertical output toggle (22x44, knob 16) -->
                             <Border x:Name="Ch1Track" Width="22" Height="44" CornerRadius="11"
                                     Background="#24FFFFFF" VerticalAlignment="Center" Cursor="Hand"
-                                    MouseLeftButtonDown="Ch1Dot_Click" ToolTip="출력 ON/OFF">
+                                    MouseLeftButtonDown="Ch1Dot_Click" ToolTip="Output ON/OFF">
                                 <Canvas>
                                     <Ellipse x:Name="Ch1Knob" Width="16" Height="16" Fill="White"
                                              Canvas.Left="2" Canvas.Top="24">
@@ -191,8 +191,8 @@
                             <TextBlock Text="CH1" Foreground="{StaticResource Ch1Accent}" FontWeight="ExtraBold"
                                        FontSize="15" Margin="7,0,0,0" VerticalAlignment="Center"/>
 
-                            <!-- CV/CC 모드 칩 (세로) -->
-                            <StackPanel Margin="7,0,0,0" VerticalAlignment="Center" ToolTip="동작 모드 (CV/CC)">
+                            <!-- CV/CC mode chips (vertical) -->
+                            <StackPanel Margin="7,0,0,0" VerticalAlignment="Center" ToolTip="Operating mode (CV/CC)">
                                 <Border x:Name="Ch1CvChip" CornerRadius="3" Padding="6,3"
                                         Background="Transparent" BorderBrush="{StaticResource ChipInactiveBorder}"
                                         BorderThickness="1">
@@ -207,7 +207,7 @@
                                 </Border>
                             </StackPanel>
 
-                            <!-- VFD: 전압 -->
+                            <!-- VFD: voltage -->
                             <Border Background="{StaticResource VfdBg}" CornerRadius="4" Padding="8,4,8,5"
                                     BorderBrush="#0AFFFFFF" BorderThickness="1" Margin="10,0,0,0"
                                     VerticalAlignment="Center" Cursor="Hand" Tag="1,V"
@@ -225,7 +225,7 @@
                                 </StackPanel>
                             </Border>
 
-                            <!-- VFD: 전류 -->
+                            <!-- VFD: current -->
                             <Border Background="{StaticResource VfdBg}" CornerRadius="4" Padding="8,4,8,5"
                                     BorderBrush="#0AFFFFFF" BorderThickness="1" Margin="6,0,0,0"
                                     VerticalAlignment="Center" Cursor="Hand" Tag="1,A"
@@ -243,7 +243,7 @@
                                 </StackPanel>
                             </Border>
 
-                            <!-- SET 값 표시 -->
+                            <!-- SET value display -->
                             <StackPanel Margin="8,0,0,0" VerticalAlignment="Center" MinWidth="64">
                                 <TextBlock x:Name="Ch1SetVText" Text="0.000 V" FontFamily="Consolas" FontWeight="Bold"
                                            FontSize="15" Foreground="{StaticResource Ch1Set}" TextAlignment="Right"/>
@@ -252,7 +252,7 @@
                                            Margin="0,4,0,0"/>
                             </StackPanel>
 
-                            <!-- 보호 그룹 카드 (OCP / OCV) -->
+                            <!-- Protection group card (OCP / OCV) -->
                             <Border Background="{StaticResource ProtCardBg}" BorderBrush="{StaticResource ProtCardBorder}"
                                     BorderThickness="1" CornerRadius="6" Padding="7,5" Margin="10,0,0,0"
                                     VerticalAlignment="Center">
@@ -275,7 +275,7 @@
                                                    FontSize="8" Width="8" Margin="3,0,0,0" VerticalAlignment="Center"/>
                                         <Border x:Name="Ch1OcpTrip" Background="{StaticResource TripRed}" CornerRadius="3"
                                                 Padding="4,2" Margin="3,0,0,0" Cursor="Hand" Visibility="Collapsed"
-                                                Tag="1,OCP" MouseLeftButtonDown="Trip_Click" ToolTip="클릭: 트립 해제">
+                                                Tag="1,OCP" MouseLeftButtonDown="Trip_Click" ToolTip="Click: clear trip">
                                             <TextBlock Text="TRIP" Foreground="White" FontWeight="ExtraBold" FontSize="8"/>
                                         </Border>
                                     </StackPanel>
@@ -300,7 +300,7 @@
                                                    FontSize="8" Width="8" Margin="3,0,0,0" VerticalAlignment="Center"/>
                                         <Border x:Name="Ch1OcvTrip" Background="{StaticResource TripRed}" CornerRadius="3"
                                                 Padding="4,2" Margin="3,0,0,0" Cursor="Hand" Visibility="Collapsed"
-                                                Tag="1,OCV" MouseLeftButtonDown="Trip_Click" ToolTip="클릭: 트립 해제">
+                                                Tag="1,OCV" MouseLeftButtonDown="Trip_Click" ToolTip="Click: clear trip">
                                             <TextBlock Text="TRIP" Foreground="White" FontWeight="ExtraBold" FontSize="8"/>
                                         </Border>
                                     </StackPanel>
@@ -309,16 +309,16 @@
                         </StackPanel>
                     </Border>
 
-                    <!-- 구분선 -->
+                    <!-- Divider -->
                     <Border x:Name="RowDivider" Height="1" Background="{StaticResource Divider}" Margin="0,3"/>
 
-                    <!-- ===== CH2 행 ===== -->
+                    <!-- ===== CH2 row ===== -->
                     <Border x:Name="Ch2Row" Background="{StaticResource Ch2RowTint}" CornerRadius="5" Padding="8,3"
                             BorderBrush="{StaticResource Ch2Accent}" BorderThickness="2,0,0,0">
                         <StackPanel Orientation="Horizontal">
                             <Border x:Name="Ch2Track" Width="22" Height="44" CornerRadius="11"
                                     Background="#24FFFFFF" VerticalAlignment="Center" Cursor="Hand"
-                                    MouseLeftButtonDown="Ch2Dot_Click" ToolTip="출력 ON/OFF">
+                                    MouseLeftButtonDown="Ch2Dot_Click" ToolTip="Output ON/OFF">
                                 <Canvas>
                                     <Ellipse x:Name="Ch2Knob" Width="16" Height="16" Fill="White"
                                              Canvas.Left="2" Canvas.Top="24">
@@ -333,7 +333,7 @@
                             <TextBlock Text="CH2" Foreground="{StaticResource Ch2Accent}" FontWeight="ExtraBold"
                                        FontSize="15" Margin="7,0,0,0" VerticalAlignment="Center"/>
 
-                            <StackPanel Margin="7,0,0,0" VerticalAlignment="Center" ToolTip="동작 모드 (CV/CC)">
+                            <StackPanel Margin="7,0,0,0" VerticalAlignment="Center" ToolTip="Operating mode (CV/CC)">
                                 <Border x:Name="Ch2CvChip" CornerRadius="3" Padding="6,3"
                                         Background="Transparent" BorderBrush="{StaticResource ChipInactiveBorder}"
                                         BorderThickness="1">
@@ -412,7 +412,7 @@
                                                    FontSize="8" Width="8" Margin="3,0,0,0" VerticalAlignment="Center"/>
                                         <Border x:Name="Ch2OcpTrip" Background="{StaticResource TripRed}" CornerRadius="3"
                                                 Padding="4,2" Margin="3,0,0,0" Cursor="Hand" Visibility="Collapsed"
-                                                Tag="2,OCP" MouseLeftButtonDown="Trip_Click" ToolTip="클릭: 트립 해제">
+                                                Tag="2,OCP" MouseLeftButtonDown="Trip_Click" ToolTip="Click: clear trip">
                                             <TextBlock Text="TRIP" Foreground="White" FontWeight="ExtraBold" FontSize="8"/>
                                         </Border>
                                     </StackPanel>
@@ -437,7 +437,7 @@
                                                    FontSize="8" Width="8" Margin="3,0,0,0" VerticalAlignment="Center"/>
                                         <Border x:Name="Ch2OcvTrip" Background="{StaticResource TripRed}" CornerRadius="3"
                                                 Padding="4,2" Margin="3,0,0,0" Cursor="Hand" Visibility="Collapsed"
-                                                Tag="2,OCV" MouseLeftButtonDown="Trip_Click" ToolTip="클릭: 트립 해제">
+                                                Tag="2,OCV" MouseLeftButtonDown="Trip_Click" ToolTip="Click: clear trip">
                                             <TextBlock Text="TRIP" Foreground="White" FontWeight="ExtraBold" FontSize="8"/>
                                         </Border>
                                     </StackPanel>
@@ -447,16 +447,16 @@
                     </Border>
                 </StackPanel>
 
-                <!-- ===== 본문 (미니 모드) — 출력 토글 + 측정 V/A만, 채널 가로 배치 ===== -->
+                <!-- ===== Body (mini mode) - output toggle + measured V/A only, channels side by side ===== -->
                 <StackPanel x:Name="MiniBody" Orientation="Horizontal" Margin="6,5" Visibility="Collapsed">
 
-                    <!-- CH1 미니 셀 -->
+                    <!-- CH1 mini cell -->
                     <Border Background="{StaticResource Ch1RowTint}" CornerRadius="5" Padding="6,3"
                             BorderBrush="{StaticResource Ch1Accent}" BorderThickness="2,0,0,0">
                         <StackPanel Orientation="Horizontal">
                             <Border x:Name="MiniCh1Track" Width="22" Height="44" CornerRadius="11"
                                     Background="#24FFFFFF" VerticalAlignment="Center" Cursor="Hand"
-                                    MouseLeftButtonDown="Ch1Dot_Click" ToolTip="출력 ON/OFF">
+                                    MouseLeftButtonDown="Ch1Dot_Click" ToolTip="Output ON/OFF">
                                 <Canvas>
                                     <Ellipse x:Name="MiniCh1Knob" Width="16" Height="16" Fill="White"
                                              Canvas.Left="2" Canvas.Top="24">
@@ -502,13 +502,13 @@
                         </StackPanel>
                     </Border>
 
-                    <!-- CH2 미니 셀 -->
+                    <!-- CH2 mini cell -->
                     <Border x:Name="MiniCh2Cell" Background="{StaticResource Ch2RowTint}" CornerRadius="5" Padding="6,3" Margin="5,0,0,0"
                             BorderBrush="{StaticResource Ch2Accent}" BorderThickness="2,0,0,0">
                         <StackPanel Orientation="Horizontal">
                             <Border x:Name="MiniCh2Track" Width="22" Height="44" CornerRadius="11"
                                     Background="#24FFFFFF" VerticalAlignment="Center" Cursor="Hand"
-                                    MouseLeftButtonDown="Ch2Dot_Click" ToolTip="출력 ON/OFF">
+                                    MouseLeftButtonDown="Ch2Dot_Click" ToolTip="Output ON/OFF">
                                 <Canvas>
                                     <Ellipse x:Name="MiniCh2Knob" Width="16" Height="16" Fill="White"
                                              Canvas.Left="2" Canvas.Top="24">
@@ -557,13 +557,13 @@
             </StackPanel>
         </Border>
 
-        <!-- ===== 설정 팝업 (측정 세그먼트 클릭 시) ===== -->
+        <!-- ===== Setpoint popup (shown on measurement segment click) ===== -->
         <Popup x:Name="SetPopup" Placement="MousePoint" StaysOpen="False"
                AllowsTransparency="True" PopupAnimation="Fade">
             <Border Width="200" Background="#16181D" BorderBrush="#24FFFFFF" BorderThickness="1"
                     CornerRadius="8" Padding="11">
                 <StackPanel>
-                    <TextBlock x:Name="PopTitle" Text="CH1 · 전압 설정" FontWeight="ExtraBold" FontSize="10"
+                    <TextBlock x:Name="PopTitle" Text="CH1 · Set Voltage" FontWeight="ExtraBold" FontSize="10"
                                Foreground="{StaticResource Ch1Accent}" Margin="0,0,0,9"/>
                     <DockPanel Margin="0,0,0,9">
                         <TextBlock x:Name="PopUnit" Text="V" DockPanel.Dock="Right" Width="12"
@@ -593,7 +593,7 @@
                         <Button x:Name="PopPCoarse" Content="+1" Style="{StaticResource StepButton}"
                                 Click="PopStep_Click" Tag="+C"/>
                     </UniformGrid>
-                    <Button x:Name="PopApply" Content="적용" FontWeight="ExtraBold" FontSize="10"
+                    <Button x:Name="PopApply" Content="Apply" FontWeight="ExtraBold" FontSize="10"
                             Foreground="#08110B" Cursor="Hand" Click="PopApply_Click">
                         <Button.Template>
                             <ControlTemplate TargetType="Button">

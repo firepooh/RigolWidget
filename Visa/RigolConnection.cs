@@ -1,9 +1,9 @@
 namespace RigolWidget.Visa;
 
 /// <summary>
-/// 마지막으로 접속한 장비 리소스를 기억하고, 런타임 중 USB 연결이 끊어지면
-/// 백그라운드에서 주기적으로 재접속을 시도해 자동 복구한다.
-/// 모든 SCPI I/O는 내부 lock으로 직렬화된다.
+/// Remembers the last connected device resource and, if the USB connection drops at runtime,
+/// periodically attempts to reconnect in the background to recover automatically.
+/// All SCPI I/O is serialized by an internal lock.
 /// </summary>
 public sealed class RigolConnection : IDisposable
 {
@@ -17,7 +17,7 @@ public sealed class RigolConnection : IDisposable
 
     public string Resource { get; }
 
-    /// <summary>연결 상태가 바뀔 때 발생(true=연결됨).</summary>
+    /// <summary>Raised when the connection state changes (true = connected).</summary>
     public event Action<bool>? ConnectionChanged;
 
     public bool IsConnected => _connected;
@@ -27,7 +27,7 @@ public sealed class RigolConnection : IDisposable
         _rm = rm;
         Resource = resource;
 
-        // 최초 1회 즉시 접속 시도.
+        // Attempt to connect immediately once at startup.
         TryOpen();
 
         _reconnectThread = new Thread(ReconnectLoop)
@@ -46,7 +46,7 @@ public sealed class RigolConnection : IDisposable
             if (!_connected)
                 TryOpen();
 
-            // 1초 간격으로 재시도.
+            // Retry at 1-second intervals.
             token.WaitHandle.WaitOne(1000);
         }
     }
@@ -60,7 +60,7 @@ public sealed class RigolConnection : IDisposable
             {
                 _session?.Dispose();
                 _session = _rm.Open(Resource);
-                // 접속 검증(*IDN?). 실패하면 예외.
+                // Verify the connection (*IDN?). Throws on failure.
                 _ = _session.Query("*IDN?");
                 SetConnected(true);
             }
@@ -75,7 +75,7 @@ public sealed class RigolConnection : IDisposable
 
     private void Drop()
     {
-        // 이미 lock 안에서 호출됨.
+        // Already called within the lock.
         _session?.Dispose();
         _session = null;
         SetConnected(false);
@@ -85,11 +85,11 @@ public sealed class RigolConnection : IDisposable
     {
         if (_connected == value) return;
         _connected = value;
-        DebugLog.Write(value ? $"연결됨: {Resource}" : $"연결 끊김: {Resource} (자동 재접속 시작)");
+        DebugLog.Write(value ? $"Connected: {Resource}" : $"Disconnected: {Resource} (starting auto-reconnect)");
         ConnectionChanged?.Invoke(value);
     }
 
-    /// <summary>명령 전송. 성공 시 true. 실패 시 연결을 끊고 false(재접속 루프가 복구).</summary>
+    /// <summary>Send a command. Returns true on success. On failure, drops the connection and returns false (the reconnect loop recovers).</summary>
     public bool Write(string command)
     {
         lock (_ioLock)
@@ -102,14 +102,14 @@ public sealed class RigolConnection : IDisposable
             }
             catch (Exception ex)
             {
-                DebugLog.Write($"쓰기 실패: '{command}' — {ex.Message}");
+                DebugLog.Write($"Write failed: '{command}' — {ex.Message}");
                 Drop();
                 return false;
             }
         }
     }
 
-    /// <summary>질의(명령+응답). 성공 시 true.</summary>
+    /// <summary>Query (command + response). Returns true on success.</summary>
     public bool Query(string command, out string response)
     {
         lock (_ioLock)
@@ -123,7 +123,7 @@ public sealed class RigolConnection : IDisposable
             }
             catch (Exception ex)
             {
-                DebugLog.Write($"질의 실패: '{command}' — {ex.Message}");
+                DebugLog.Write($"Query failed: '{command}' — {ex.Message}");
                 Drop();
                 return false;
             }

@@ -25,19 +25,19 @@ public partial class MainWindow : Window
     private Storyboard? _pulse;
     private int _pollTick;
 
-    // 설정 팝업 상태
+    // Setpoint popup state
     private ChannelUi? _popCh;
     private char _popField;   // 'V' | 'A'
-    private bool _mini;       // 미니창 모드
+    private bool _mini;       // Mini (compact) mode
 
-    private Dp800Model _model = Dp800Models.Default;  // 감지된 장비 모델(정격)
-    private bool _identified;                          // *IDN? 식별 완료 여부
+    private Dp800Model _model = Dp800Models.Default;  // Detected device model (ratings)
+    private bool _identified;                          // whether *IDN? identification is done
 
-    private readonly AppSettings _settings;           // 앱 설정(MCP 등)
-    private readonly RigolMcpContext _mcpContext;     // MCP 공유 컨텍스트
-    private readonly RigolMcpServer _mcpServer;       // 내장 MCP 서버
+    private readonly AppSettings _settings;           // App settings (MCP, etc.)
+    private readonly RigolMcpContext _mcpContext;     // MCP shared context
+    private readonly RigolMcpServer _mcpServer;       // Embedded MCP server
 
-    // 휠 조작 디바운스: 조작 중엔 SET 표시만 갱신(깜빡임), 멈추면 장비로 전송
+    // Wheel debounce: while adjusting, update the SET display only (blink); send to the device when it stops
     private readonly DispatcherTimer _wheelTimer;
     private ChannelUi? _wheelCh;
     private char _wheelField;
@@ -96,14 +96,14 @@ public partial class MainWindow : Window
         _wheelTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2.0) };
         _wheelTimer.Tick += (_, _) => CommitWheel();
 
-        // 우클릭 메뉴에 어셈블리 버전 표시 (빌드 해시 접미사는 잘라냄)
+        // Show the assembly version in the right-click menu (strip the build-hash suffix)
         var infoVer = Assembly.GetExecutingAssembly()
             .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
             .InformationalVersion ?? "?";
         int plus = infoVer.IndexOf('+');
         VersionMenu.Header = $"RigolWidget v{(plus > 0 ? infoVer[..plus] : infoVer)}";
 
-        // 내장 MCP 서버 초기화(설정 로드).
+        // Initialize the embedded MCP server (load settings).
         _settings = AppSettings.Load();
         _mcpContext = new RigolMcpContext(_dev)
         {
@@ -126,7 +126,7 @@ public partial class MainWindow : Window
         Closed += OnClosed;
     }
 
-    // ================= 폴링 =================
+    // ================= Polling =================
 
     private void StartPolling()
     {
@@ -141,18 +141,18 @@ public partial class MainWindow : Window
         {
             if (_dev.IsConnected)
             {
-                // (재)접속 직후 최초 1회: 모델 식별(*IDN?) → 타이틀·정격 반영.
+                // First time right after (re)connect: identify the model (*IDN?) -> apply title & ratings.
                 if (!_identified)
                     IdentifyModel();
 
-                // _pollTick==0 은 (재)접속 직후 → 즉시 전체 동기화.
+                // _pollTick==0 means right after (re)connect -> full sync immediately.
                 bool fullSync = (_pollTick % 4) == 0;
                 _pollTick++;
 
                 foreach (var c in _channels)
                 {
                     if (token.IsCancellationRequested) break;
-                    if (c.Channel == 2 && !_model.HasCh2) continue;  // 단일 채널 모델은 CH2 폴링 생략
+                    if (c.Channel == 2 && !_model.HasCh2) continue;  // single-channel models skip CH2 polling
                     if (fullSync) FullSyncChannel(c);
                     else FastPollChannel(c);
                 }
@@ -163,43 +163,43 @@ public partial class MainWindow : Window
         }
     }
 
-    /// <summary>*IDN?로 모델을 식별해 타이틀·정격·채널 표시를 반영한다(최초 1회).</summary>
+    /// <summary>Identify the model via *IDN? and apply the title, ratings, and channel visibility (once).</summary>
     private void IdentifyModel()
     {
         if (!_dev.TryGetIdentity(out string idn))
-            return;   // 실패 시 다음 폴링에서 재시도
+            return;   // retry on the next poll if it failed
 
         var model = Dp800Models.FromIdn(idn);
         _identified = true;
-        DebugLog.Write($"모델 식별: {model.Name} (IDN: {idn.Trim()})");
+        DebugLog.Write($"Model identified: {model.Name} (IDN: {idn.Trim()})");
 
         Dispatcher.Invoke(() => ApplyModel(model));
     }
 
-    /// <summary>감지된 모델을 UI에 반영: 타이틀 라벨, 채널 정격, CH2 표시 여부.</summary>
+    /// <summary>Apply the detected model to the UI: title label, channel ratings, CH2 visibility.</summary>
     private void ApplyModel(Dp800Model model)
     {
         _model = model;
-        _mcpContext.Model = model;   // MCP 도구의 정격 클램프도 동일 모델 사용
+        _mcpContext.Model = model;   // MCP tools use the same model for rating clamps
         ModelLabel.Text = model.Name;
 
         _channels[0].Rating = model.Ch1;
         _channels[1].Rating = model.Ch2 ?? model.Ch1;
 
-        // 단일 채널 모델은 CH2 관련 UI 숨김(전체·미니).
+        // single-channel models hide CH2-related UI (full & mini).
         var ch2Vis = model.HasCh2 ? Visibility.Visible : Visibility.Collapsed;
         Ch2Row.Visibility = ch2Vis;
         RowDivider.Visibility = ch2Vis;
         MiniCh2Cell.Visibility = ch2Vis;
     }
 
-    /// <summary>변경됐을 때만 대입 — 동일 값 재대입으로 인한 불필요한 렌더 무효화 방지.</summary>
+    /// <summary>Assign only when changed - avoids unnecessary render invalidation from re-assigning the same value.</summary>
     private static void SetTextIfChanged(TextBlock tb, string text)
     {
         if (tb.Text != text) tb.Text = text;
     }
 
-    /// <summary>측정 전압/전류 텍스트를 전체·미니 표시 양쪽에 갱신.</summary>
+    /// <summary>Update the measured voltage/current text on both the full and mini displays.</summary>
     private static void SetMeasText(ChannelUi c, double v, double a)
     {
         string sv = v.ToString("0.000", CultureInfo.InvariantCulture);
@@ -210,7 +210,7 @@ public partial class MainWindow : Window
         SetTextIfChanged(c.MiniMeasA, sa);
     }
 
-    /// <summary>빠른 폴링: 측정값(묶음 질의) + 동작 모드(CV/CC).</summary>
+    /// <summary>Fast poll: measurements (batched query) + operating mode (CV/CC).</summary>
     private void FastPollChannel(ChannelUi c)
     {
         bool okMeas = _dev.TryReadMeasurementAll(c.Channel, out double v, out double a, out _);
@@ -228,8 +228,8 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// 채널 전체 상태를 필드별로 읽어, 성공한 항목만 UI에 반영한다.
-    /// (질의 하나가 실패해도 나머지 값은 정상 동기화)
+    /// Read the full channel state field by field, applying only the successful items to the UI.
+    /// (even if one query fails, the rest still sync normally)
     /// </summary>
     private void FullSyncChannel(ChannelUi c)
     {
@@ -260,8 +260,8 @@ public partial class MainWindow : Window
                 RenderToggle(c, animate: true);
             }
 
-            // 사용자가 방금 휠/팝업으로 바꾼 직후엔 장비의 예전 값으로 되돌리지 않는다.
-            // (휠 디바운스 2초 + 전송 여유를 덮도록 2.5초)
+            // Right after the user changed a value via wheel/popup, do not revert to the device old value.
+            // (2.5s, to cover the 2s wheel debounce plus send latency)
             bool recentLocal = (DateTime.UtcNow - c.LastLocalSet).TotalMilliseconds < 2500;
             if (okSet && !recentLocal)
             {
@@ -277,7 +277,7 @@ public partial class MainWindow : Window
             if (okOcvT && c.TripOcv != ocvTrip) { c.TripOcv = ocvTrip; protChanged = true; }
             if (protChanged) RenderProtection(c);
 
-            // 편집 중이 아닐 때만 보호값 입력칸 동기화(사용자 입력 보호).
+            // Sync the protection input boxes only when not being edited (protect user input).
             if (okOcpV && !c.OcpVal.IsFocused)
             {
                 string s = ocpVal.ToString("0.000", CultureInfo.InvariantCulture);
@@ -291,14 +291,14 @@ public partial class MainWindow : Window
         });
     }
 
-    // ================= 연결 상태 UI =================
+    // ================= Connection status UI =================
 
     private void OnConnectionChanged(bool connected)
     {
         if (connected)
         {
-            _pollTick = 0;      // (재)접속 직후 다음 폴링에서 즉시 전체 동기화
-            _identified = false; // 재접속 시 모델 재식별
+            _pollTick = 0;      // full sync on the next poll right after (re)connect
+            _identified = false; // re-identify the model on reconnect
         }
         Dispatcher.InvokeAsync(() => UpdateConnectionUi(connected));
     }
@@ -308,7 +308,7 @@ public partial class MainWindow : Window
         if (connected)
         {
             LiveDot.Fill = (Brush)FindResource("Ch1Accent");
-            ConnText.Text = "연결됨";
+            ConnText.Text = "Connected";
             ConnText.Foreground = new SolidColorBrush(Color.FromRgb(0x6B, 0x70, 0x77));
             _pulse?.Begin(LiveDot, true);
         }
@@ -317,7 +317,7 @@ public partial class MainWindow : Window
             _pulse?.Stop(LiveDot);
             LiveDot.Opacity = 1;
             LiveDot.Fill = new SolidColorBrush(Color.FromRgb(0xE0, 0x50, 0x50));
-            ConnText.Text = "재접속 중…";
+            ConnText.Text = "Reconnecting…";
             ConnText.Foreground = new SolidColorBrush(Color.FromRgb(0xE0, 0x50, 0x50));
         }
     }
@@ -329,23 +329,23 @@ public partial class MainWindow : Window
             AutoReverse = true,
             RepeatBehavior = RepeatBehavior.Forever
         };
-        Timeline.SetDesiredFrameRate(anim, 10);   // 상시 애니메이션 → 저프레임으로 유휴 렌더 부하 절감
+        Timeline.SetDesiredFrameRate(anim, 10);   // cap the always-on animation at low FPS to cut idle render load
         Storyboard.SetTarget(anim, LiveDot);
         Storyboard.SetTargetProperty(anim, new PropertyPath("Opacity"));
         _pulse = new Storyboard();
         _pulse.Children.Add(anim);
     }
 
-    // ================= 렌더 헬퍼 =================
+    // ================= Render helpers =================
 
-    /// <summary>세로 토글 렌더 — 전체·미니 두 스위치를 함께 갱신.</summary>
+    /// <summary>Render the vertical toggle - update both the full and mini switches together.</summary>
     private static void RenderToggle(ChannelUi c, bool animate)
     {
         RenderSwitch(c.Track, c.Knob, c.OutputOn, c.Accent, animate);
         RenderSwitch(c.MiniTrack, c.MiniKnob, c.OutputOn, c.Accent, animate);
     }
 
-    /// <summary>세로 스위치 하나: ON = accent 트랙+글로우+knob 위, OFF = 회색 트랙+knob 아래.</summary>
+    /// <summary>A single vertical switch: ON = accent track+glow+knob up, OFF = gray track+knob down.</summary>
     private static void RenderSwitch(Border track, Ellipse knob, bool on, Brush accent, bool animate)
     {
         if (on)
@@ -370,7 +370,7 @@ public partial class MainWindow : Window
             track.Effect = null;
         }
 
-        // knob 슬라이드(세로): ON=위(2px), OFF=아래(24px). 트랙 1px 테두리 보정.
+        // knob slide (vertical): ON=up(2px), OFF=down(24px), adjusted for the 1px track border.
         double target = on ? 2 : 24;
         if (animate)
         {
@@ -388,7 +388,7 @@ public partial class MainWindow : Window
         Canvas.SetLeft(knob, 2);
     }
 
-    /// <summary>CV/CC 모드 칩 렌더: 현재 모드만 accent 활성. UR이면 둘 다 비활성.</summary>
+    /// <summary>Render CV/CC mode chips: only the current mode is accent-active; both inactive when UR.</summary>
     private static void RenderMode(ChannelUi c)
     {
         StyleModeChip(c.CvChip, c.CvText, c.Mode == "CV", c.Accent);
@@ -420,14 +420,14 @@ public partial class MainWindow : Window
         }
     }
 
-    /// <summary>SET 값(설정 전압/전류) 표시 갱신.</summary>
+    /// <summary>Update the SET value (setpoint voltage/current) display.</summary>
     private static void RenderSet(ChannelUi c)
     {
         SetTextIfChanged(c.SetVText, c.SetV.ToString("0.000", CultureInfo.InvariantCulture) + " V");
         SetTextIfChanged(c.SetAText, c.SetA.ToString("0.000", CultureInfo.InvariantCulture) + " A");
     }
 
-    /// <summary>OCP/OCV 체크박스 + 라벨 + TRIP 배지 렌더.</summary>
+    /// <summary>Render the OCP/OCV checkbox + label + TRIP badge.</summary>
     private void RenderProtection(ChannelUi c)
     {
         RenderProtRow(c, c.OcpOn, c.TripOcp, c.OcpBox, c.OcpMark, c.OcpLabel, c.OcpTrip);
@@ -450,7 +450,7 @@ public partial class MainWindow : Window
             mark.Visibility = Visibility.Collapsed;
         }
 
-        bool tripped = enabled && fault;   // 보호 활성 + 이벤트 발생 시에만 표시
+        bool tripped = enabled && fault;   // show only when protection is enabled and an event occurred
         label.Foreground = tripped
             ? (Brush)FindResource("TripLabel")
             : enabled ? c.Accent : (Brush)FindResource("SubText2");
@@ -474,12 +474,12 @@ public partial class MainWindow : Window
         }
     }
 
-    // ================= 사용자 조작 =================
+    // ================= User actions =================
 
     private void ToggleOutput(ChannelUi c)
     {
         c.OutputOn = !c.OutputOn;
-        RenderToggle(c, animate: true);            // 낙관적 업데이트
+        RenderToggle(c, animate: true);            // optimistic update
         bool target = c.OutputOn;
         Task.Run(() => _dev.SetOutput(c.Channel, target));
     }
@@ -500,10 +500,10 @@ public partial class MainWindow : Window
         Task.Run(() => _dev.SetOvp(c.Channel, target));
     }
 
-    /// <summary>setpoint 적용(팝업 커밋): 상태·SET 표시 갱신 후 즉시 장비 전송.</summary>
+    /// <summary>Apply setpoint (popup commit): update state & SET display, then send to the device immediately.</summary>
     private void ApplySetpoint(ChannelUi c, char field, double value)
     {
-        // 같은 항목의 휠 디바운스 대기가 있으면 취소(팝업 값이 우선)
+        // cancel any pending wheel debounce for the same item (popup value wins)
         if (_wheelCh == c && _wheelField == field)
         {
             _wheelTimer.Stop();
@@ -549,7 +549,7 @@ public partial class MainWindow : Window
             || double.TryParse(text, NumberStyles.Float, CultureInfo.CurrentCulture, out value);
     }
 
-    /// <summary>Tag "n,X" 형식 파싱 → (채널UI, 종류).</summary>
+    /// <summary>Parse a Tag of the form "n,X" -> (channel UI, kind).</summary>
     private bool TryParseTag(object? sender, out ChannelUi c, out string kind)
     {
         c = _channels[0];
@@ -562,7 +562,7 @@ public partial class MainWindow : Window
         return true;
     }
 
-    // ---- 세그먼트(VFD) 인터랙션 ----
+    // ---- Segment (VFD) interaction ----
 
     private void Vfd_Click(object sender, MouseButtonEventArgs e)
     {
@@ -577,7 +577,7 @@ public partial class MainWindow : Window
 
         char field = kind == "V" ? 'V' : 'A';
 
-        // 다른 채널/항목을 조작하기 시작하면 이전 항목은 즉시 커밋
+        // if the user starts adjusting another channel/item, commit the previous one immediately
         if (_wheelCh != null && (_wheelCh != c || _wheelField != field))
             CommitWheel();
 
@@ -589,7 +589,7 @@ public partial class MainWindow : Window
         double max = field == 'V' ? c.Rating.VMax : c.Rating.IMax;
         double value = Math.Round(Math.Clamp(cur + (e.Delta > 0 ? step : -step), 0, max), 3);
 
-        // SET 표시만 갱신 + 깜빡임. 장비 전송은 조작이 멈춘 뒤(타이머).
+        // Update the SET display + blink only. Send to the device after adjustment stops (timer).
         _wheelCh = c;
         _wheelField = field;
         _wheelValue = value;
@@ -604,7 +604,7 @@ public partial class MainWindow : Window
         _wheelTimer.Start();
     }
 
-    /// <summary>휠 조작 종료 → 깜빡임 정지, 마지막 값을 장비로 전송.</summary>
+    /// <summary>Wheel adjustment ended -> stop blinking and send the last value to the device.</summary>
     private void CommitWheel()
     {
         _wheelTimer.Stop();
@@ -626,7 +626,7 @@ public partial class MainWindow : Window
     private static void StartSetBlink(ChannelUi c, char field)
     {
         var tb = field == 'V' ? c.SetVText : c.SetAText;
-        if (Equals(tb.Tag, "blink")) return;   // 이미 깜빡이는 중
+        if (Equals(tb.Tag, "blink")) return;   // already blinking
         tb.Tag = "blink";
         var blink = new DoubleAnimation(1.0, 0.25, new Duration(TimeSpan.FromSeconds(0.3)))
         {
@@ -645,14 +645,14 @@ public partial class MainWindow : Window
         tb.Opacity = 1;
     }
 
-    // ---- 설정 팝업 ----
+    // ---- Setpoint popup ----
 
     private void OpenSetPopup(ChannelUi c, char field)
     {
         _popCh = c;
         _popField = field;
 
-        PopTitle.Text = $"CH{c.Channel} · {(field == 'V' ? "전압" : "전류")} 설정";
+        PopTitle.Text = $"CH{c.Channel} · Set {(field == 'V' ? "Voltage" : "Current")}";
         PopTitle.Foreground = c.Accent;
         PopUnit.Text = field.ToString();
         PopApply.Background = c.Accent;
@@ -707,7 +707,7 @@ public partial class MainWindow : Window
         SetPopup.IsOpen = false;
     }
 
-    // ---- TRIP 해제 ----
+    // ---- Clear TRIP ----
 
     private void Trip_Click(object sender, MouseButtonEventArgs e)
     {
@@ -727,7 +727,7 @@ public partial class MainWindow : Window
         RenderProtection(c);
     }
 
-    // ---- 이벤트 핸들러 (XAML 바인딩) ----
+    // ---- Event handlers (XAML bindings) ----
 
     private void Ch1Dot_Click(object sender, MouseButtonEventArgs e) => ToggleOutput(_channels[0]);
     private void Ch2Dot_Click(object sender, MouseButtonEventArgs e) => ToggleOutput(_channels[1]);
@@ -751,11 +751,11 @@ public partial class MainWindow : Window
         }
     }
 
-    // ================= 창 제어 =================
+    // ================= Window control =================
 
     private void TitleBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
-        if (e.ClickCount == 2)   // 더블클릭 → 미니창 모드 토글
+        if (e.ClickCount == 2)   // double-click -> toggle mini mode
         {
             ToggleMini();
             return;
@@ -767,12 +767,12 @@ public partial class MainWindow : Window
     private void ToggleMini()
     {
         _mini = !_mini;
-        SetPopup.IsOpen = false;   // 미니 전환 시 열린 팝업 닫기
+        SetPopup.IsOpen = false;   // close any open popup when switching to mini
         FullBody.Visibility = _mini ? Visibility.Collapsed : Visibility.Visible;
         MiniBody.Visibility = _mini ? Visibility.Visible : Visibility.Collapsed;
     }
 
-    // 타이틀바에서 휠 → 투명도 조절 (0.35 ~ 1.0)
+    // wheel on the title bar -> adjust opacity (0.35 ~ 1.0)
     private void TitleBar_MouseWheel(object sender, MouseWheelEventArgs e)
     {
         double step = e.Delta > 0 ? 0.05 : -0.05;
@@ -785,7 +785,7 @@ public partial class MainWindow : Window
 
     private void CloseMenu_Click(object sender, RoutedEventArgs e) => Close();
 
-    // ================= 내장 MCP 서버 =================
+    // ================= Embedded MCP server =================
 
     private void InitMcpMenu()
     {
@@ -798,7 +798,7 @@ public partial class MainWindow : Window
     {
         bool running = _mcpServer.IsRunning;
         McpServerMenu.IsChecked = running;
-        McpServerMenu.Header = running ? $"MCP 서버 (켜짐 · :{_mcpServer.Port})" : "MCP 서버";
+        McpServerMenu.Header = running ? $"MCP Server (on · :{_mcpServer.Port})" : "MCP Server";
         McpCopyMenu.IsEnabled = running;
     }
 
@@ -820,7 +820,7 @@ public partial class MainWindow : Window
         }
         else
         {
-            MessageBox.Show($"MCP 서버를 시작할 수 없습니다 (포트 {_settings.McpPort}).\n{error}",
+            MessageBox.Show($"Cannot start the MCP server (port {_settings.McpPort}).\n{error}",
                 "RigolWidget", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
         UpdateMcpMenuState();
@@ -840,7 +840,7 @@ public partial class MainWindow : Window
         _mcpContext.ControlAllowed = allow;
         _settings.McpAllowControl = allow;
         _settings.Save();
-        DebugLog.Write($"MCP 제어 허용 = {allow}");
+        DebugLog.Write($"MCP control allowed = {allow}");
     }
 
     private void McpCopyMenu_Click(object sender, RoutedEventArgs e)
@@ -849,28 +849,28 @@ public partial class MainWindow : Window
         try
         {
             Clipboard.SetText(_mcpServer.Url);
-            McpCopyMenu.Header = "MCP 주소 복사됨 ✓";
+            McpCopyMenu.Header = "MCP URL copied ✓";
             Dispatcher.BeginInvoke(new Action(async () =>
             {
                 await Task.Delay(1500);
-                McpCopyMenu.Header = "MCP 주소 복사";
+                McpCopyMenu.Header = "Copy MCP URL";
             }));
         }
-        catch { /* 클립보드 접근 실패 무시 */ }
+        catch { /* ignore clipboard access failures */ }
     }
 
-    /// <summary>MCP발 쓰기 명령 콜백(백그라운드 스레드): 로그 + UI 즉시 재동기화 예약.</summary>
+    /// <summary>Callback for MCP-issued write commands (background thread): log + schedule an immediate UI resync.</summary>
     private void OnMcpCommand(string message)
     {
         DebugLog.Write(message);
-        _pollTick = 0;   // 다음 폴링에서 전체 동기화 → UI에 즉시 반영
+        _pollTick = 0;   // full sync on the next poll -> reflect in the UI immediately
     }
 
     private void SetPinned(bool pinned)
     {
         Topmost = pinned;
         PinIcon.Opacity = pinned ? 1.0 : 0.35;
-        PinButton.ToolTip = pinned ? "항상 위에 고정 (켜짐)" : "항상 위에 고정 (꺼짐)";
+        PinButton.ToolTip = pinned ? "Always on Top (on)" : "Always on Top (off)";
         PinMenu.IsChecked = pinned;
     }
 
@@ -880,7 +880,7 @@ public partial class MainWindow : Window
 
     private async void OnClosed(object? sender, EventArgs e)
     {
-        CommitWheel();   // 미전송 휠 조작값 플러시
+        CommitWheel();   // flush any unsent wheel value
         _pollCts?.Cancel();
         await _mcpServer.StopAsync();
         _conn.ConnectionChanged -= OnConnectionChanged;
@@ -888,7 +888,7 @@ public partial class MainWindow : Window
         _rm.Dispose();
     }
 
-    // ================= 채널 UI 묶음 =================
+    // ================= Channel UI bundle =================
 
     private sealed class ChannelUi
     {
@@ -929,6 +929,6 @@ public partial class MainWindow : Window
         public double SetV;
         public double SetA;
         public DateTime LastLocalSet = DateTime.MinValue;
-        public ChannelRating Rating = new(30, 3, 33, 3.3);  // 기본 DP832 CH 정격
+        public ChannelRating Rating = new(30, 3, 33, 3.3);  // default DP832 channel ratings
     }
 }

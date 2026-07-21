@@ -3,8 +3,8 @@ using System.IO;
 namespace RigolWidget.Visa;
 
 /// <summary>
-/// 통신 실패 진단용 간이 로그. %LOCALAPPDATA%\RigolWidget\rigolwidget.log 에 기록한다.
-/// 실패/상태전환만 기록하므로 평상시엔 조용하다.
+/// Lightweight log for diagnosing communication failures. Writes to %LOCALAPPDATA%\RigolWidget\rigolwidget.log.
+/// Only records failures and state transitions, so it stays quiet under normal conditions.
 /// </summary>
 internal static class DebugLog
 {
@@ -26,6 +26,6 @@ internal static class DebugLog
             lock (Lock)
                 File.AppendAllText(Path, $"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff} {message}\r\n");
         }
-        catch { /* 로그 실패는 무시 */ }
+        catch { /* ignore logging failures */ }
     }
 }

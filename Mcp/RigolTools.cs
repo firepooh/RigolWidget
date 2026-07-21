@@ -6,9 +6,9 @@ using RigolWidget.Visa;
 namespace RigolWidget.Mcp;
 
 /// <summary>
-/// RIGOL DP800 전원공급기를 제어/조회하는 MCP 도구 모음.
-/// 쓰기 도구는 컨텍스트의 ControlAllowed가 켜져 있어야 동작한다(기본 읽기 전용).
-/// 모든 설정값은 감지된 모델 정격으로 클램프된다.
+/// MCP tools to control/query a RIGOL DP800 power supply.
+/// Write tools require the context ControlAllowed flag to be on (read-only by default).
+/// All setpoints are clamped to the detected model ratings.
 /// </summary>
 [McpServerToolType]
 public sealed class RigolTools
@@ -17,22 +17,22 @@ public sealed class RigolTools
 
     public RigolTools(RigolMcpContext ctx) => _ctx = ctx;
 
-    // ---- 조회 ----
+    // ---- Read ----
 
     [McpServerTool(Name = "get_identity")]
-    [Description("장비 식별 정보(*IDN?)와 감지된 모델명을 반환한다.")]
+    [Description("Return the device identity (*IDN?) and the detected model name.")]
     public string GetIdentity()
     {
-        if (!_ctx.IsConnected) return Err("장비가 연결되어 있지 않습니다.");
+        if (!_ctx.IsConnected) return Err("Device is not connected.");
         _ctx.Device.TryGetIdentity(out string idn);
         return $"{{\"model\":\"{_ctx.Model.Name}\",\"idn\":\"{idn.Trim()}\"}}";
     }
 
     [McpServerTool(Name = "get_status")]
-    [Description("모든 채널의 측정값(전압/전류), 설정값, 출력 상태, CV/CC 모드, OCP/OVP 보호 상태와 트립 여부를 반환한다.")]
+    [Description("Return all channels measurements (voltage/current), setpoints, output state, CV/CC mode, and OCP/OVP protection state including trip status.")]
     public object GetStatus()
     {
-        if (!_ctx.IsConnected) return new { error = "장비가 연결되어 있지 않습니다." };
+        if (!_ctx.IsConnected) return new { error = "Device is not connected." };
 
         var list = new List<object>();
         var model = _ctx.Model;
@@ -64,52 +64,52 @@ public sealed class RigolTools
         return new { model = model.Name, control_allowed = _ctx.ControlAllowed, channels = list };
     }
 
-    // ---- 제어(쓰기) ----
+    // ---- Control (write) ----
 
     [McpServerTool(Name = "set_voltage")]
-    [Description("지정 채널의 출력 전압(V)을 설정한다. 값은 모델 정격으로 클램프된다.")]
+    [Description("Set the output voltage (V) of the given channel. The value is clamped to the model rating.")]
     public string SetVoltage(
-        [Description("채널 번호 (1 또는 2)")] int channel,
-        [Description("설정 전압(V)")] double volts)
+        [Description("Channel number (1 or 2)")] int channel,
+        [Description("Voltage to set (V)")] double volts)
     {
         if (!TryGuard(channel, out string err, out var rating)) return err;
         double v = Clamp(volts, 0, rating.VMax);
         bool ok = _ctx.Device.SetVoltage(channel, v);
-        _ctx.NotifyCommand($"[MCP] CH{channel} 전압 설정 {F(v)}V");
-        return ok ? Ok($"CH{channel} 전압을 {F(v)}V로 설정했습니다.") : Err("전송 실패(통신 오류).");
+        _ctx.NotifyCommand($"[MCP] CH{channel} set voltage {F(v)}V");
+        return ok ? Ok($"Set CH{channel} voltage to {F(v)}V.") : Err("Send failed (communication error).");
     }
 
     [McpServerTool(Name = "set_current")]
-    [Description("지정 채널의 출력 전류 리미트(A)를 설정한다. 값은 모델 정격으로 클램프된다.")]
+    [Description("Set the output current limit (A) of the given channel. The value is clamped to the model rating.")]
     public string SetCurrent(
-        [Description("채널 번호 (1 또는 2)")] int channel,
-        [Description("설정 전류(A)")] double amps)
+        [Description("Channel number (1 or 2)")] int channel,
+        [Description("Current to set (A)")] double amps)
     {
         if (!TryGuard(channel, out string err, out var rating)) return err;
         double a = Clamp(amps, 0, rating.IMax);
         bool ok = _ctx.Device.SetCurrent(channel, a);
-        _ctx.NotifyCommand($"[MCP] CH{channel} 전류 설정 {F(a)}A");
-        return ok ? Ok($"CH{channel} 전류 리미트를 {F(a)}A로 설정했습니다.") : Err("전송 실패(통신 오류).");
+        _ctx.NotifyCommand($"[MCP] CH{channel} set current {F(a)}A");
+        return ok ? Ok($"Set CH{channel} current limit to {F(a)}A.") : Err("Send failed (communication error).");
     }
 
     [McpServerTool(Name = "set_output")]
-    [Description("지정 채널의 출력을 켜거나 끈다.")]
+    [Description("Turn the given channel output on or off.")]
     public string SetOutput(
-        [Description("채널 번호 (1 또는 2)")] int channel,
-        [Description("true=출력 ON, false=출력 OFF")] bool on)
+        [Description("Channel number (1 or 2)")] int channel,
+        [Description("true = output ON, false = output OFF")] bool on)
     {
         if (!TryGuard(channel, out string err, out _)) return err;
         bool ok = _ctx.Device.SetOutput(channel, on);
-        _ctx.NotifyCommand($"[MCP] CH{channel} 출력 {(on ? "ON" : "OFF")}");
-        return ok ? Ok($"CH{channel} 출력을 {(on ? "켰습니다" : "껐습니다")}.") : Err("전송 실패(통신 오류).");
+        _ctx.NotifyCommand($"[MCP] CH{channel} output {(on ? "ON" : "OFF")}");
+        return ok ? Ok($"Turned CH{channel} output {(on ? "on" : "off")}.") : Err("Send failed (communication error).");
     }
 
     [McpServerTool(Name = "set_ocp")]
-    [Description("지정 채널의 과전류 보호(OCP)를 켜거나 끄고, 선택적으로 임계 전류(A)를 설정한다.")]
+    [Description("Enable or disable over-current protection (OCP) for the given channel, optionally setting the threshold current (A).")]
     public string SetOcp(
-        [Description("채널 번호 (1 또는 2)")] int channel,
-        [Description("true=OCP 활성, false=비활성")] bool enabled,
-        [Description("임계 전류(A). 생략하면 현재값 유지")] double? amps = null)
+        [Description("Channel number (1 or 2)")] int channel,
+        [Description("true = enable OCP, false = disable")] bool enabled,
+        [Description("Threshold current (A). Omit to keep the current value.")] double? amps = null)
     {
         if (!TryGuard(channel, out string err, out var rating)) return err;
         string extra = "";
@@ -117,19 +117,19 @@ public sealed class RigolTools
         {
             double c = Clamp(a, 0, rating.OcpMax);
             _ctx.Device.SetOcpValue(channel, c);
-            extra = $", 임계 {F(c)}A";
+            extra = $", threshold {F(c)}A";
         }
         bool ok = _ctx.Device.SetOcp(channel, enabled);
         _ctx.NotifyCommand($"[MCP] CH{channel} OCP {(enabled ? "ON" : "OFF")}{extra}");
-        return ok ? Ok($"CH{channel} OCP {(enabled ? "활성" : "비활성")}{extra} 완료.") : Err("전송 실패(통신 오류).");
+        return ok ? Ok($"CH{channel} OCP {(enabled ? "enabled" : "disabled")}{extra} done.") : Err("Send failed (communication error).");
     }
 
     [McpServerTool(Name = "set_ovp")]
-    [Description("지정 채널의 과전압 보호(OVP)를 켜거나 끄고, 선택적으로 임계 전압(V)을 설정한다.")]
+    [Description("Enable or disable over-voltage protection (OVP) for the given channel, optionally setting the threshold voltage (V).")]
     public string SetOvp(
-        [Description("채널 번호 (1 또는 2)")] int channel,
-        [Description("true=OVP 활성, false=비활성")] bool enabled,
-        [Description("임계 전압(V). 생략하면 현재값 유지")] double? volts = null)
+        [Description("Channel number (1 or 2)")] int channel,
+        [Description("true = enable OVP, false = disable")] bool enabled,
+        [Description("Threshold voltage (V). Omit to keep the current value.")] double? volts = null)
     {
         if (!TryGuard(channel, out string err, out var rating)) return err;
         string extra = "";
@@ -137,49 +137,49 @@ public sealed class RigolTools
         {
             double c = Clamp(v, 0.01, rating.OvpMax);
             _ctx.Device.SetOvpValue(channel, c);
-            extra = $", 임계 {F(c)}V";
+            extra = $", threshold {F(c)}V";
         }
         bool ok = _ctx.Device.SetOvp(channel, enabled);
         _ctx.NotifyCommand($"[MCP] CH{channel} OVP {(enabled ? "ON" : "OFF")}{extra}");
-        return ok ? Ok($"CH{channel} OVP {(enabled ? "활성" : "비활성")}{extra} 완료.") : Err("전송 실패(통신 오류).");
+        return ok ? Ok($"CH{channel} OVP {(enabled ? "enabled" : "disabled")}{extra} done.") : Err("Send failed (communication error).");
     }
 
     [McpServerTool(Name = "clear_trip")]
-    [Description("지정 채널의 보호 트립(알람)을 해제한다. kind는 'ocp' 또는 'ovp'.")]
+    [Description("Clear a protection trip (alarm) on the given channel. kind is 'ocp' or 'ovp'.")]
     public string ClearTrip(
-        [Description("채널 번호 (1 또는 2)")] int channel,
-        [Description("'ocp'(과전류) 또는 'ovp'(과전압)")] string kind)
+        [Description("Channel number (1 or 2)")] int channel,
+        [Description("'ocp' (over-current) or 'ovp' (over-voltage)")] string kind)
     {
         if (!TryGuard(channel, out string err, out _)) return err;
         kind = kind?.Trim().ToLowerInvariant() ?? "";
         bool ok;
         if (kind == "ocp") ok = _ctx.Device.ClearOcpAlarm(channel);
         else if (kind == "ovp") ok = _ctx.Device.ClearOvpAlarm(channel);
-        else return Err("kind는 'ocp' 또는 'ovp'여야 합니다.");
-        _ctx.NotifyCommand($"[MCP] CH{channel} {kind.ToUpperInvariant()} 트립 해제");
-        return ok ? Ok($"CH{channel} {kind.ToUpperInvariant()} 트립을 해제했습니다.") : Err("전송 실패(통신 오류).");
+        else return Err("kind must be 'ocp' or 'ovp'.");
+        _ctx.NotifyCommand($"[MCP] CH{channel} {kind.ToUpperInvariant()} trip cleared");
+        return ok ? Ok($"Cleared CH{channel} {kind.ToUpperInvariant()} trip.") : Err("Send failed (communication error).");
     }
 
-    // ---- 내부 헬퍼 ----
+    // ---- Internal helpers ----
 
-    /// <summary>제어 허용·연결·채널 유효성 검사. 실패 시 err에 사유.</summary>
+    /// <summary>Validate control-allowed, connection, and channel. On failure, err holds the reason.</summary>
     private bool TryGuard(int channel, out string err, out ChannelRating rating)
     {
         rating = _ctx.Model.RatingFor(channel);
         err = "";
         if (!_ctx.ControlAllowed)
         {
-            err = Err("제어가 비활성화되어 있습니다. 위젯 우클릭 메뉴에서 'MCP 제어 허용'을 켜세요.");
+            err = Err("Control is disabled. Enable 'Allow MCP Control' from the widget right-click menu.");
             return false;
         }
         if (!_ctx.IsConnected)
         {
-            err = Err("장비가 연결되어 있지 않습니다.");
+            err = Err("Device is not connected.");
             return false;
         }
         if (channel < 1 || channel > 2 || (channel == 2 && !_ctx.Model.HasCh2))
         {
-            err = Err($"유효하지 않은 채널: {channel} (이 모델은 {(_ctx.Model.HasCh2 ? "CH1·CH2" : "CH1")}만 지원).");
+            err = Err($"Invalid channel: {channel} (this model supports {(_ctx.Model.HasCh2 ? "CH1·CH2" : "CH1")} only).");
             return false;
         }
         return true;

@@ -3,8 +3,8 @@ using System.Text;
 namespace RigolWidget.Visa;
 
 /// <summary>
-/// VISA Default Resource Manager 래퍼. USB 장비 탐색 및 세션 오픈을 담당한다.
-/// 프로세스당 한 번만 열어 재사용한다.
+/// Wrapper around the VISA Default Resource Manager. Handles USB device discovery and session opening.
+/// Opened once per process and reused.
 /// </summary>
 public sealed class VisaResourceManager : IDisposable
 {
@@ -15,10 +15,10 @@ public sealed class VisaResourceManager : IDisposable
     {
         int status = VisaInterop.viOpenDefaultRM(out _rm);
         if (!VisaInterop.Success(status))
-            throw new VisaException("VISA 리소스 매니저를 열 수 없습니다. VISA 런타임(NI-VISA 등) 설치를 확인하세요.", status);
+            throw new VisaException("Cannot open the VISA resource manager. Please check that a VISA runtime (e.g. NI-VISA) is installed.", status);
     }
 
-    /// <summary>USB 계측기 리소스 문자열 목록을 반환한다. (예: USB0::0x1AB1::0x0E11::DP8...::INSTR)</summary>
+    /// <summary>Returns a list of USB instrument resource strings. (e.g. USB0::0x1AB1::0x0E11::DP8...::INSTR)</summary>
     public IReadOnlyList<string> FindUsbInstruments()
     {
         var results = new List<string>();
@@ -47,14 +47,14 @@ public sealed class VisaResourceManager : IDisposable
         return results;
     }
 
-    /// <summary>지정한 리소스로 장비 세션을 연다. 실패 시 VisaException.</summary>
+    /// <summary>Opens a device session for the given resource. Throws VisaException on failure.</summary>
     public VisaSession Open(string resource, int timeoutMs = 1500)
     {
         int status = VisaInterop.viOpen(_rm, resource, VisaInterop.VI_NULL, 0, out int vi);
         if (!VisaInterop.Success(status))
-            throw new VisaException($"장비를 열 수 없습니다: {resource}", status);
+            throw new VisaException($"Cannot open device: {resource}", status);
 
-        // I/O 타임아웃 설정 (실패해도 기본값으로 진행).
+        // Set the I/O timeout (proceed with the default if this fails).
         VisaInterop.viSetAttribute(vi, VisaInterop.VI_ATTR_TMO_VALUE, timeoutMs);
         return new VisaSession(vi, resource);
     }

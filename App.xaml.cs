@@ -10,7 +10,7 @@ public partial class App : Application
     {
         base.OnStartup(e);
 
-        // 1) 장비 선택 창을 먼저 띄운다 (USB 전용).
+        // 1) Show the device selection window first (USB only).
         var select = new DeviceSelectWindow();
         bool? ok = select.ShowDialog();
 
@@ -20,7 +20,7 @@ public partial class App : Application
             return;
         }
 
-        // 2) 선택된 장비로 메인 위젯 창을 연다.
+        // 2) Open the main widget window with the selected device.
         var main = new MainWindow(select.SelectedResource!);
         MainWindow = main;
         main.Closed += (_, _) => Shutdown();

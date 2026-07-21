@@ -20,7 +20,7 @@
                 <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
 
-            <!-- 타이틀바 -->
+            <!-- Title bar -->
             <Border Grid.Row="0" Background="#111216" CornerRadius="6,6,0,0"
                     MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
                 <Grid Height="38">
@@ -32,18 +32,18 @@
                 </Grid>
             </Border>
 
-            <!-- USB 탭 (USB 전용) -->
+            <!-- USB tab (USB only) -->
             <Border Grid.Row="1" Background="#141519" Padding="14,10,14,4">
                 <StackPanel Orientation="Horizontal">
                     <Border Background="#2A2D34" CornerRadius="4,4,0,0" Padding="16,6">
                         <TextBlock Text="USB" Foreground="#EEF1F4" FontWeight="SemiBold" FontSize="13"/>
                     </Border>
-                    <TextBlock Text="USB 계측기만 지원" Foreground="#7C828A" FontSize="11"
+                    <TextBlock Text="USB instruments only" Foreground="#7C828A" FontSize="11"
                                VerticalAlignment="Center" Margin="12,0,0,0"/>
                 </StackPanel>
             </Border>
 
-            <!-- 장비 리스트 -->
+            <!-- Device list -->
             <Border Grid.Row="2" Background="#0F1013" Margin="14,0,14,0"
                     BorderBrush="#2A2D34" BorderThickness="1">
                 <Grid>
@@ -66,19 +66,19 @@
                     </ListBox>
 
                     <TextBlock x:Name="EmptyHint"
-                               Text="USB 장비를 찾는 중..."
+                               Text="Searching for USB devices..."
                                Foreground="#6B7077" FontSize="13"
                                HorizontalAlignment="Center" VerticalAlignment="Center"
                                Visibility="Collapsed"/>
                 </Grid>
             </Border>
 
-            <!-- 하단 버튼 -->
+            <!-- Bottom buttons -->
             <Grid Grid.Row="3" Margin="14,12,14,14">
                 <TextBlock x:Name="StatusText" Foreground="#7C828A" FontSize="11"
                            VerticalAlignment="Center" HorizontalAlignment="Left"/>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                    <Button Content="새로고침" Click="Refresh_Click"
+                    <Button Content="Refresh" Click="Refresh_Click"
                             Padding="16,7" Margin="0,0,8,0" Cursor="Hand"
                             Background="#2A2D34" Foreground="#DDE1E6" BorderThickness="0" FontSize="13"/>
                     <Button x:Name="ConnectButton" Content="Connect" Click="Connect_Click"

@@ -3,9 +3,9 @@ using System.Globalization;
 namespace RigolWidget.Visa;
 
 /// <summary>
-/// RIGOL DP832 SCPI 제어 래퍼. RigolConnection 위에서 동작하며
-/// 채널은 1(CH1), 2(CH2)만 사용한다.
-/// 조회는 필드별로 독립적으로 성공/실패를 반환한다(하나 실패해도 나머지는 사용 가능).
+/// RIGOL DP832 SCPI control wrapper. Runs on top of RigolConnection and
+/// uses only channels 1 (CH1) and 2 (CH2).
+/// Queries return success/failure independently per field (if one fails, the rest are still usable).
 /// </summary>
 public sealed class Dp832
 {
@@ -17,81 +17,81 @@ public sealed class Dp832
 
     private static string Ch(int channel) => "CH" + channel;
 
-    /// <summary>장비 식별 문자열(*IDN?)을 읽는다.</summary>
+    /// <summary>Read the device identity string (*IDN?).</summary>
     public bool TryGetIdentity(out string idn)
         => _conn.Query("*IDN?", out idn) && !string.IsNullOrWhiteSpace(idn);
 
-    // ---- 설정(Write) ----
+    // ---- Set (write) ----
 
-    // 상한 클램프는 호출부(모델 정격 기반)에서 수행하고, 여기선 음수만 방지한다.
+    // Upper clamping is done by the caller (based on model ratings); here we only prevent negatives.
 
-    /// <summary>출력 전압 설정(V).</summary>
+    /// <summary>Set output voltage (V).</summary>
     public bool SetVoltage(int channel, double volts)
     {
         volts = Math.Max(0, volts);
         return _conn.Write($":SOUR{channel}:VOLT {volts.ToString("0.000", CultureInfo.InvariantCulture)}");
     }
 
-    /// <summary>출력 전류 리미트 설정(A).</summary>
+    /// <summary>Set output current limit (A).</summary>
     public bool SetCurrent(int channel, double amps)
     {
         amps = Math.Max(0, amps);
         return _conn.Write($":SOUR{channel}:CURR {amps.ToString("0.000", CultureInfo.InvariantCulture)}");
     }
 
-    /// <summary>출력 ON/OFF.</summary>
+    /// <summary>Output ON/OFF.</summary>
     public bool SetOutput(int channel, bool on)
         => _conn.Write($":OUTP {Ch(channel)},{(on ? "ON" : "OFF")}");
 
-    /// <summary>OCP(과전류 보호) ON/OFF.</summary>
+    /// <summary>OCP (over-current protection) ON/OFF.</summary>
     public bool SetOcp(int channel, bool on)
         => _conn.Write($":OUTP:OCP {Ch(channel)},{(on ? "ON" : "OFF")}");
 
-    /// <summary>OCP 전류 임계값(A) 설정.</summary>
+    /// <summary>Set OCP threshold current (A).</summary>
     public bool SetOcpValue(int channel, double amps)
     {
         amps = Math.Max(0, amps);
         return _conn.Write($":OUTP:OCP:VAL {Ch(channel)},{amps.ToString("0.000", CultureInfo.InvariantCulture)}");
     }
 
-    /// <summary>OVP(과전압 보호) ON/OFF.</summary>
+    /// <summary>OVP (over-voltage protection) ON/OFF.</summary>
     public bool SetOvp(int channel, bool on)
         => _conn.Write($":OUTP:OVP {Ch(channel)},{(on ? "ON" : "OFF")}");
 
-    /// <summary>OVP 전압 임계값(V) 설정.</summary>
+    /// <summary>Set OVP threshold voltage (V).</summary>
     public bool SetOvpValue(int channel, double volts)
     {
         volts = Math.Max(0.01, volts);
         return _conn.Write($":OUTP:OVP:VAL {Ch(channel)},{volts.ToString("0.000", CultureInfo.InvariantCulture)}");
     }
 
-    /// <summary>OCP 트립(알람) 해제.</summary>
+    /// <summary>Clear OCP trip (alarm).</summary>
     public bool ClearOcpAlarm(int channel)
         => _conn.Write($":OUTP:OCP:CLEAR {Ch(channel)}");
 
-    /// <summary>OVP 트립(알람) 해제.</summary>
+    /// <summary>Clear OVP trip (alarm).</summary>
     public bool ClearOvpAlarm(int channel)
         => _conn.Write($":OUTP:OVP:CLEAR {Ch(channel)}");
 
-    // ---- 조회(Query, 필드별 독립) ----
+    // ---- Query (independent per field) ----
 
-    /// <summary>실측 전압(V).</summary>
+    /// <summary>Measured voltage (V).</summary>
     public bool TryGetMeasVoltage(int channel, out double volts)
         => QueryDouble($":MEAS:VOLT? {Ch(channel)}", out volts);
 
-    /// <summary>실측 전류(A).</summary>
+    /// <summary>Measured current (A).</summary>
     public bool TryGetMeasCurrent(int channel, out double amps)
         => QueryDouble($":MEAS:CURR? {Ch(channel)}", out amps);
 
-    /// <summary>설정 전압(V) — 장비에 저장된 마지막 설정값.</summary>
+    /// <summary>Set voltage (V) - the last setpoint stored on the device.</summary>
     public bool TryGetSetVoltage(int channel, out double volts)
         => QueryDouble($":SOUR{channel}:VOLT?", out volts);
 
-    /// <summary>설정 전류 리미트(A) — 장비에 저장된 마지막 설정값.</summary>
+    /// <summary>Set current limit (A) - the last setpoint stored on the device.</summary>
     public bool TryGetSetCurrent(int channel, out double amps)
         => QueryDouble($":SOUR{channel}:CURR?", out amps);
 
-    /// <summary>동작 모드: "CV" | "CC" | "UR".</summary>
+    /// <summary>Operating mode: "CV" | "CC" | "UR".</summary>
     public bool TryGetMode(int channel, out string mode)
     {
         mode = "";
@@ -100,46 +100,46 @@ public sealed class Dp832
         mode = resp.Trim().ToUpperInvariant();
         if (mode is "CV" or "CC" or "UR")
             return true;
-        DebugLog.Write($"파싱 실패: cmd=':OUTP:MODE? {Ch(channel)}' resp='{resp}'");
+        DebugLog.Write($"Parse failed: cmd=':OUTP:MODE? {Ch(channel)}' resp='{resp}'");
         return false;
     }
 
-    /// <summary>출력 ON/OFF 상태.</summary>
+    /// <summary>Output ON/OFF state.</summary>
     public bool TryGetOutputState(int channel, out bool on)
         => QueryBool($":OUTP? {Ch(channel)}", out on);
 
-    /// <summary>OCP ON/OFF 상태.</summary>
+    /// <summary>OCP ON/OFF state.</summary>
     public bool TryGetOcpState(int channel, out bool on)
         => QueryBool($":OUTP:OCP? {Ch(channel)}", out on);
 
-    /// <summary>OCP 전류 임계값(A).</summary>
+    /// <summary>OCP threshold current (A).</summary>
     public bool TryGetOcpValue(int channel, out double amps)
         => QueryDouble($":OUTP:OCP:VAL? {Ch(channel)}", out amps);
 
-    /// <summary>OCP 트립(알람) 발생 여부.</summary>
+    /// <summary>Whether an OCP trip (alarm) has occurred.</summary>
     public bool TryGetOcpAlarm(int channel, out bool tripped)
         => QueryBool($":OUTP:OCP:ALAR? {Ch(channel)}", out tripped);
 
-    /// <summary>OVP ON/OFF 상태.</summary>
+    /// <summary>OVP ON/OFF state.</summary>
     public bool TryGetOvpState(int channel, out bool on)
         => QueryBool($":OUTP:OVP? {Ch(channel)}", out on);
 
-    /// <summary>OVP 전압 임계값(V).</summary>
+    /// <summary>OVP threshold voltage (V).</summary>
     public bool TryGetOvpValue(int channel, out double volts)
         => QueryDouble($":OUTP:OVP:VAL? {Ch(channel)}", out volts);
 
-    /// <summary>OVP 트립(알람) 발생 여부.</summary>
+    /// <summary>Whether an OVP trip (alarm) has occurred.</summary>
     public bool TryGetOvpAlarm(int channel, out bool tripped)
         => QueryBool($":OUTP:OVP:ALAR? {Ch(channel)}", out tripped);
 
-    /// <summary>측정값 묶음 질의: 전압/전류/전력을 한 번에 읽는다 (:MEAS:ALL?).</summary>
+    /// <summary>Batched measurement query: read voltage/current/power at once (:MEAS:ALL?).</summary>
     public bool TryReadMeasurementAll(int channel, out double volts, out double amps, out double watts)
     {
         volts = 0; amps = 0; watts = 0;
         if (!_conn.Query($":MEAS:ALL? {Ch(channel)}", out string resp))
             return false;
 
-        // 응답: "12.000,1.000,12.000" (V,A,W)
+        // Response: "12.000,1.000,12.000" (V,A,W)
         var parts = resp.Trim().Split(',');
         if (parts.Length >= 3
             && double.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out volts)
@@ -147,29 +147,29 @@ public sealed class Dp832
             && double.TryParse(parts[2], NumberStyles.Float, CultureInfo.InvariantCulture, out watts))
             return true;
 
-        DebugLog.Write($"파싱 실패: cmd=':MEAS:ALL? {Ch(channel)}' resp='{resp}'");
+        DebugLog.Write($"Parse failed: cmd=':MEAS:ALL? {Ch(channel)}' resp='{resp}'");
         return false;
     }
 
-    /// <summary>설정값 묶음 질의: 설정 전압/전류를 한 번에 읽는다 (:APPL?).</summary>
+    /// <summary>Batched setpoint query: read set voltage/current at once (:APPL?).</summary>
     public bool TryGetApplied(int channel, out double setVolts, out double setAmps)
     {
         setVolts = 0; setAmps = 0;
         if (!_conn.Query($":APPL? {Ch(channel)}", out string resp))
             return false;
 
-        // 응답: "CH1:30V/3A,12.000,1.0000" (정격, 설정V, 설정A)
+        // Response: "CH1:30V/3A,12.000,1.0000" (rating, set V, set A)
         var parts = resp.Trim().Split(',');
         if (parts.Length >= 3
             && double.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out setVolts)
             && double.TryParse(parts[2], NumberStyles.Float, CultureInfo.InvariantCulture, out setAmps))
             return true;
 
-        DebugLog.Write($"파싱 실패: cmd=':APPL? {Ch(channel)}' resp='{resp}'");
+        DebugLog.Write($"Parse failed: cmd=':APPL? {Ch(channel)}' resp='{resp}'");
         return false;
     }
 
-    // ---- 내부 헬퍼 ----
+    // ---- Internal helpers ----
 
     private bool QueryDouble(string cmd, out double value)
     {
@@ -180,12 +180,12 @@ public sealed class Dp832
         if (double.TryParse(resp, NumberStyles.Float, CultureInfo.InvariantCulture, out value))
             return true;
 
-        // 일부 펌웨어가 "12.000V"처럼 단위를 붙이는 경우 대비.
+        // Handle firmware that appends a unit, e.g. "12.000V".
         string trimmed = resp.TrimEnd('V', 'A', 'v', 'a', ' ');
         if (double.TryParse(trimmed, NumberStyles.Float, CultureInfo.InvariantCulture, out value))
             return true;
 
-        DebugLog.Write($"파싱 실패: cmd='{cmd}' resp='{resp}'");
+        DebugLog.Write($"Parse failed: cmd='{cmd}' resp='{resp}'");
         return false;
     }
 
@@ -209,7 +209,7 @@ public sealed class Dp832
             return true;
         }
 
-        DebugLog.Write($"파싱 실패: cmd='{cmd}' resp='{resp}'");
+        DebugLog.Write($"Parse failed: cmd='{cmd}' resp='{resp}'");
         return false;
     }
 }
