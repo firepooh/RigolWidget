@@ -145,11 +145,24 @@ public sealed class Dp832
             && double.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out volts)
             && double.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out amps)
             && double.TryParse(parts[2], NumberStyles.Float, CultureInfo.InvariantCulture, out watts))
-            return true;
+        {
+            // Guard against implausible readings. Instruments can return sentinels like
+            // 9.9E37 (SCPI infinity) or garbage (e.g. 4294967295) on an unavailable/desynced
+            // read; those parse fine but must never be shown. DP800 max is 60V/10A.
+            if (Plausible(volts, 100) && Plausible(amps, 20) && Plausible(watts, 500))
+                return true;
+
+            DebugLog.Write($"Implausible measurement discarded: cmd=':MEAS:ALL? {Ch(channel)}' resp='{resp}'");
+            volts = 0; amps = 0; watts = 0;
+            return false;
+        }
 
         DebugLog.Write($"Parse failed: cmd=':MEAS:ALL? {Ch(channel)}' resp='{resp}'");
         return false;
     }
+
+    /// <summary>Within a sane physical range (small negative noise allowed, no huge sentinels).</summary>
+    private static bool Plausible(double v, double max) => v >= -1.0 && v <= max;
 
     /// <summary>Batched setpoint query: read set voltage/current at once (:APPL?).</summary>
     public bool TryGetApplied(int channel, out double setVolts, out double setAmps)
@@ -163,7 +176,14 @@ public sealed class Dp832
         if (parts.Length >= 3
             && double.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out setVolts)
             && double.TryParse(parts[2], NumberStyles.Float, CultureInfo.InvariantCulture, out setAmps))
-            return true;
+        {
+            if (Plausible(setVolts, 100) && Plausible(setAmps, 20))
+                return true;
+
+            DebugLog.Write($"Implausible setpoint discarded: cmd=':APPL? {Ch(channel)}' resp='{resp}'");
+            setVolts = 0; setAmps = 0;
+            return false;
+        }
 
         DebugLog.Write($"Parse failed: cmd=':APPL? {Ch(channel)}' resp='{resp}'");
         return false;
