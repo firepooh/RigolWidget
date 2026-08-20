@@ -3,14 +3,25 @@ namespace RigolWidget.Visa;
 /// <summary>Channel ratings: upper clamp limits for setpoints/protection values.</summary>
 public sealed record ChannelRating(double VMax, double IMax, double OvpMax, double OcpMax);
 
-/// <summary>DP800 series model ratings (for CH1 and CH2, which we control).</summary>
-public sealed record Dp800Model(string Name, ChannelRating Ch1, ChannelRating? Ch2)
+/// <summary>DP800 series model ratings (for the CH1..CH3 we control).</summary>
+public sealed record Dp800Model(string Name, ChannelRating Ch1, ChannelRating? Ch2, ChannelRating? Ch3)
 {
-    /// <summary>Whether it has two channels (false = single-channel model, so CH2 is hidden).</summary>
+    /// <summary>Whether it has CH2 (false = single-channel model).</summary>
     public bool HasCh2 => Ch2 is not null;
 
+    /// <summary>Whether it has CH3.</summary>
+    public bool HasCh3 => Ch3 is not null;
+
+    /// <summary>Number of channels this widget drives (1, 2, or 3).</summary>
+    public int ChannelCount => HasCh3 ? 3 : HasCh2 ? 2 : 1;
+
+    /// <summary>Whether the given channel number exists on this model.</summary>
+    public bool HasChannel(int channel) =>
+        channel == 1 || (channel == 2 && HasCh2) || (channel == 3 && HasCh3);
+
     /// <summary>Look up the rating by channel number (falls back to CH1 rating if absent).</summary>
-    public ChannelRating RatingFor(int channel) => channel == 2 ? (Ch2 ?? Ch1) : Ch1;
+    public ChannelRating RatingFor(int channel) =>
+        channel == 3 ? (Ch3 ?? Ch1) : channel == 2 ? (Ch2 ?? Ch1) : Ch1;
 }
 
 /// <summary>DP800 series model rating table and *IDN? matching.</summary>
@@ -18,20 +29,22 @@ public static class Dp800Models
 {
     // Source: RIGOL DP800 User's Guide Ch.5 Specifications (DC Output / OVP·OCP ranges).
     // The protection upper limits (OvpMax/OcpMax) are the top of the spec's settable OVP/OCP ranges.
+    // Note: DP831 CH3 is a negative rail (0 to -30V); the positive-oriented UI does not support it,
+    //       so DP831 is treated as a 2-channel model here (Ch3 = null).
     private static readonly Dp800Model[] Table =
     {
-        // DP832 / DP832A: CH1 30V/3A, CH2 30V/3A
-        new("DP832",  new(30, 3, 33, 3.3),  new(30, 3, 33, 3.3)),
-        new("DP832A", new(30, 3, 33, 3.3),  new(30, 3, 33, 3.3)),
-        // DP831 / DP831A: CH1 8V/5A, CH2 30V/2A
-        new("DP831",  new(8, 5, 8.8, 5.5),  new(30, 2, 33, 2.2)),
-        new("DP831A", new(8, 5, 8.8, 5.5),  new(30, 2, 33, 2.2)),
+        // DP832 / DP832A: CH1 30V/3A, CH2 30V/3A, CH3 5V/3A
+        new("DP832",  new(30, 3, 33, 3.3),  new(30, 3, 33, 3.3),  new(5, 3, 5.5, 3.3)),
+        new("DP832A", new(30, 3, 33, 3.3),  new(30, 3, 33, 3.3),  new(5, 3, 5.5, 3.3)),
+        // DP831 / DP831A: CH1 8V/5A, CH2 30V/2A (CH3 is a negative rail — not shown)
+        new("DP831",  new(8, 5, 8.8, 5.5),  new(30, 2, 33, 2.2),  null),
+        new("DP831A", new(8, 5, 8.8, 5.5),  new(30, 2, 33, 2.2),  null),
         // DP821 / DP821A: CH1 60V/1A, CH2 8V/10A
-        new("DP821",  new(60, 1, 66, 1.1),  new(8, 10, 8.8, 11)),
-        new("DP821A", new(60, 1, 66, 1.1),  new(8, 10, 8.8, 11)),
-        // DP811 / DP811A: single channel (Range2 40V/5A). No CH2.
-        new("DP811",  new(40, 5, 44, 5.5),  null),
-        new("DP811A", new(40, 5, 44, 5.5),  null),
+        new("DP821",  new(60, 1, 66, 1.1),  new(8, 10, 8.8, 11),  null),
+        new("DP821A", new(60, 1, 66, 1.1),  new(8, 10, 8.8, 11),  null),
+        // DP811 / DP811A: single channel (Range2 40V/5A)
+        new("DP811",  new(40, 5, 44, 5.5),  null,  null),
+        new("DP811A", new(40, 5, 44, 5.5),  null,  null),
     };
 
     /// <summary>Default (when the device is unidentified/not connected).</summary>

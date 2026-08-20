@@ -82,6 +82,20 @@ public partial class MainWindow : Window
                 OcvBox = Ch2OcvBox, OcvMark = Ch2OcvMark, OcvLabel = Ch2OcvLabel,
                 OcvVal = Ch2OcvVal, OcvTrip = Ch2OcvTrip,
             },
+            new ChannelUi
+            {
+                Channel = 3, Accent = (Brush)FindResource("Ch3Accent"),
+                Track = Ch3Track, Knob = Ch3Knob,
+                MiniTrack = MiniCh3Track, MiniKnob = MiniCh3Knob,
+                MiniMeasV = MiniCh3MeasV, MiniMeasA = MiniCh3MeasA,
+                CvChip = Ch3CvChip, CvText = Ch3CvText, CcChip = Ch3CcChip, CcText = Ch3CcText,
+                MeasV = Ch3MeasV, MeasA = Ch3MeasA,
+                SetVText = Ch3SetVText, SetAText = Ch3SetAText,
+                OcpBox = Ch3OcpBox, OcpMark = Ch3OcpMark, OcpLabel = Ch3OcpLabel,
+                OcpVal = Ch3OcpVal, OcpTrip = Ch3OcpTrip,
+                OcvBox = Ch3OcvBox, OcvMark = Ch3OcvMark, OcvLabel = Ch3OcvLabel,
+                OcvVal = Ch3OcvVal, OcvTrip = Ch3OcvTrip,
+            },
         };
 
         foreach (var c in _channels)
@@ -152,7 +166,7 @@ public partial class MainWindow : Window
                 foreach (var c in _channels)
                 {
                     if (token.IsCancellationRequested) break;
-                    if (c.Channel == 2 && !_model.HasCh2) continue;  // single-channel models skip CH2 polling
+                    if (!_model.HasChannel(c.Channel)) continue;  // skip channels this model doesn't have
                     if (fullSync) FullSyncChannel(c);
                     else FastPollChannel(c);
                 }
@@ -185,12 +199,18 @@ public partial class MainWindow : Window
 
         _channels[0].Rating = model.Ch1;
         _channels[1].Rating = model.Ch2 ?? model.Ch1;
+        _channels[2].Rating = model.Ch3 ?? model.Ch1;
 
-        // single-channel models hide CH2-related UI (full & mini).
+        // Show only the channels this model has (full & mini).
         var ch2Vis = model.HasCh2 ? Visibility.Visible : Visibility.Collapsed;
         Ch2Row.Visibility = ch2Vis;
         RowDivider.Visibility = ch2Vis;
         MiniCh2Cell.Visibility = ch2Vis;
+
+        var ch3Vis = model.HasCh3 ? Visibility.Visible : Visibility.Collapsed;
+        Ch3Row.Visibility = ch3Vis;
+        RowDivider2.Visibility = ch3Vis;
+        MiniCh3Cell.Visibility = ch3Vis;
     }
 
     /// <summary>Assign only when changed - avoids unnecessary render invalidation from re-assigning the same value.</summary>
@@ -556,7 +576,7 @@ public partial class MainWindow : Window
         kind = "";
         if (sender is not FrameworkElement fe || fe.Tag is not string tag) return false;
         var parts = tag.Split(',');
-        if (parts.Length != 2 || !int.TryParse(parts[0], out int ch) || ch is < 1 or > 2) return false;
+        if (parts.Length != 2 || !int.TryParse(parts[0], out int ch) || ch is < 1 or > 3) return false;
         c = _channels[ch - 1];
         kind = parts[1];
         return true;
@@ -731,10 +751,13 @@ public partial class MainWindow : Window
 
     private void Ch1Dot_Click(object sender, MouseButtonEventArgs e) => ToggleOutput(_channels[0]);
     private void Ch2Dot_Click(object sender, MouseButtonEventArgs e) => ToggleOutput(_channels[1]);
+    private void Ch3Dot_Click(object sender, MouseButtonEventArgs e) => ToggleOutput(_channels[2]);
     private void Ch1Ocp_Click(object sender, MouseButtonEventArgs e) => ToggleOcp(_channels[0]);
     private void Ch2Ocp_Click(object sender, MouseButtonEventArgs e) => ToggleOcp(_channels[1]);
+    private void Ch3Ocp_Click(object sender, MouseButtonEventArgs e) => ToggleOcp(_channels[2]);
     private void Ch1Ocv_Click(object sender, MouseButtonEventArgs e) => ToggleOcv(_channels[0]);
     private void Ch2Ocv_Click(object sender, MouseButtonEventArgs e) => ToggleOcv(_channels[1]);
+    private void Ch3Ocv_Click(object sender, MouseButtonEventArgs e) => ToggleOcv(_channels[2]);
 
     private void ProtVal_Commit(object sender, RoutedEventArgs e)
     {

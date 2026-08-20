@@ -36,7 +36,7 @@ public sealed class RigolTools
 
         var list = new List<object>();
         var model = _ctx.Model;
-        int channels = model.HasCh2 ? 2 : 1;
+        int channels = model.ChannelCount;
         for (int ch = 1; ch <= channels; ch++)
         {
             _ctx.Device.TryReadMeasurementAll(ch, out double mv, out double ma, out double mw);
@@ -69,7 +69,7 @@ public sealed class RigolTools
     [McpServerTool(Name = "set_voltage")]
     [Description("Set the output voltage (V) of the given channel. The value is clamped to the model rating.")]
     public string SetVoltage(
-        [Description("Channel number (1 or 2)")] int channel,
+        [Description("Channel number (1, 2, or 3; availability depends on model)")] int channel,
         [Description("Voltage to set (V)")] double volts)
     {
         if (!TryGuard(channel, out string err, out var rating)) return err;
@@ -82,7 +82,7 @@ public sealed class RigolTools
     [McpServerTool(Name = "set_current")]
     [Description("Set the output current limit (A) of the given channel. The value is clamped to the model rating.")]
     public string SetCurrent(
-        [Description("Channel number (1 or 2)")] int channel,
+        [Description("Channel number (1, 2, or 3; availability depends on model)")] int channel,
         [Description("Current to set (A)")] double amps)
     {
         if (!TryGuard(channel, out string err, out var rating)) return err;
@@ -95,7 +95,7 @@ public sealed class RigolTools
     [McpServerTool(Name = "set_output")]
     [Description("Turn the given channel output on or off.")]
     public string SetOutput(
-        [Description("Channel number (1 or 2)")] int channel,
+        [Description("Channel number (1, 2, or 3; availability depends on model)")] int channel,
         [Description("true = output ON, false = output OFF")] bool on)
     {
         if (!TryGuard(channel, out string err, out _)) return err;
@@ -107,7 +107,7 @@ public sealed class RigolTools
     [McpServerTool(Name = "set_ocp")]
     [Description("Enable or disable over-current protection (OCP) for the given channel, optionally setting the threshold current (A).")]
     public string SetOcp(
-        [Description("Channel number (1 or 2)")] int channel,
+        [Description("Channel number (1, 2, or 3; availability depends on model)")] int channel,
         [Description("true = enable OCP, false = disable")] bool enabled,
         [Description("Threshold current (A). Omit to keep the current value.")] double? amps = null)
     {
@@ -127,7 +127,7 @@ public sealed class RigolTools
     [McpServerTool(Name = "set_ovp")]
     [Description("Enable or disable over-voltage protection (OVP) for the given channel, optionally setting the threshold voltage (V).")]
     public string SetOvp(
-        [Description("Channel number (1 or 2)")] int channel,
+        [Description("Channel number (1, 2, or 3; availability depends on model)")] int channel,
         [Description("true = enable OVP, false = disable")] bool enabled,
         [Description("Threshold voltage (V). Omit to keep the current value.")] double? volts = null)
     {
@@ -147,7 +147,7 @@ public sealed class RigolTools
     [McpServerTool(Name = "clear_trip")]
     [Description("Clear a protection trip (alarm) on the given channel. kind is 'ocp' or 'ovp'.")]
     public string ClearTrip(
-        [Description("Channel number (1 or 2)")] int channel,
+        [Description("Channel number (1, 2, or 3; availability depends on model)")] int channel,
         [Description("'ocp' (over-current) or 'ovp' (over-voltage)")] string kind)
     {
         if (!TryGuard(channel, out string err, out _)) return err;
@@ -177,9 +177,9 @@ public sealed class RigolTools
             err = Err("Device is not connected.");
             return false;
         }
-        if (channel < 1 || channel > 2 || (channel == 2 && !_ctx.Model.HasCh2))
+        if (!_ctx.Model.HasChannel(channel))
         {
-            err = Err($"Invalid channel: {channel} (this model supports {(_ctx.Model.HasCh2 ? "CH1·CH2" : "CH1")} only).");
+            err = Err($"Invalid channel: {channel} (this model has {_ctx.Model.ChannelCount} channel(s): CH1..CH{_ctx.Model.ChannelCount}).");
             return false;
         }
         return true;

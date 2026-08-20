@@ -14,6 +14,7 @@
         <SolidColorBrush x:Key="VDivider" Color="#14FFFFFF"/>
         <SolidColorBrush x:Key="Ch1Accent" Color="#35C24A"/>
         <SolidColorBrush x:Key="Ch2Accent" Color="#22BCD4"/>
+        <SolidColorBrush x:Key="Ch3Accent" Color="#E6A23C"/>
         <SolidColorBrush x:Key="Ch2Current" Color="#7FE0EC"/>
         <SolidColorBrush x:Key="BrandYellow" Color="#F2A900"/>
         <SolidColorBrush x:Key="NumText" Color="#EEF1F4"/>

@@ -7,14 +7,14 @@
 
 [한국어](README.md) · **English**
 
-An always-on-top **control widget for RIGOL DP800-series DC power supplies** for the Windows desktop. It strips the chart and CH3 out of RIGOL's stock PC software (Ultra Power) and keeps only what you actually use day to day: **CH1/CH2 control and monitoring**. It talks to the instrument over USB (VISA/SCPI) and, on connect, auto-detects the model via `*IDN?` to set the title and rating ranges.
+An always-on-top **control widget for RIGOL DP800-series DC power supplies** for the Windows desktop. It strips the chart out of RIGOL's stock PC software (Ultra Power) and keeps only what you actually use day to day: **channel control and monitoring** (CH1–CH3, depending on model). It talks to the instrument over USB (VISA/SCPI) and, on connect, auto-detects the model via `*IDN?` to set the channel count, title, and rating ranges.
 
 ![RigolWidget main widget](docs/screenshot.png)
 
 ## Features
 
-- **Auto model detection** — reads the model via `*IDN?` on connect and auto-sets the title and per-channel voltage/current ratings (DP832, DP831, DP821, DP811 and their A variants)
-- **Live measurement** — shows CH1/CH2 voltage/current on a seven-segment (VFD) display
+- **Auto model detection** — reads the model via `*IDN?` on connect and auto-sets the **channel count (1–3)**, title, and per-channel voltage/current ratings (DP832, DP831, DP821, DP811 and their A variants)
+- **Live measurement** — shows each channel's voltage/current (up to CH3, model-dependent) on a seven-segment (VFD) display
 - **CV/CC mode indicator** — reflects the instrument's current operating mode (constant voltage/current) in real time
 - **Output ON/OFF** — per-channel vertical toggle switch
 - **Voltage/current setpoints** — adjust directly by clicking the reading (popup) or with the mouse wheel
@@ -72,16 +72,18 @@ When you launch the app, a device-selection window appears first. Pick your DP83
 
 On connect, the model is detected via `*IDN?` to set the title and per-channel voltage/current ratings. Rating values are built in from each model's datasheet.
 
-| Model | Controlled channels | Ratings (CH1 / CH2) | Support | Hardware tested |
+| Model | Controlled channels | Ratings (CH1 / CH2 / CH3) | Support | Hardware tested |
 |---|---|---|:---:|:---:|
-| **DP832 / DP832A** | CH1, CH2 | 30V·3A / 30V·3A | ✅ Full support | ✅ **DP832 verified** |
-| **DP831 / DP831A** | CH1, CH2 | 8V·5A / 30V·2A | ✅ Ratings auto-applied | ⬜ Untested |
-| **DP821 / DP821A** | CH1, CH2 | 60V·1A / 8V·10A | ✅ Ratings auto-applied | ⬜ Untested |
-| **DP811 / DP811A** | CH1 (single channel) | 40V·5A / — | 🟡 Shown as single channel | ⬜ Untested |
+| **DP832 / DP832A** | CH1, CH2, CH3 | 30V·3A / 30V·3A / 5V·3A | ✅ Full support | ✅ **DP832 verified** |
+| **DP831 / DP831A** | CH1, CH2 | 8V·5A / 30V·2A / (CH3 excluded) | ✅ Ratings auto-applied | ⬜ Untested |
+| **DP821 / DP821A** | CH1, CH2 | 60V·1A / 8V·10A / — | ✅ Ratings auto-applied | ⬜ Untested |
+| **DP811 / DP811A** | CH1 (single channel) | 40V·5A / — / — | 🟡 Shown as single channel | ⬜ Untested |
 | DP700 (DP711/DP712) | — | — | ❌ Unsupported | — |
 
-- ✅ **Hardware tested**: only **DP832** has been verified on real hardware so far. The other DP800 models share the same SCPI command set and are expected to work, with ratings applied automatically, but they haven't been verified on hardware yet. Please try it and open an [Issue](https://github.com/firepooh/RigolWidget/issues) if anything is off.
-- 🟡 **DP811(A)**: single-channel model, so only CH1 is shown (CH2 hidden).
+- ✅ **Hardware tested**: only **DP832** (including CH3) has been verified on real hardware so far. The other DP800 models share the same SCPI command set and are expected to work, with channel count and ratings applied automatically, but they haven't been verified on hardware yet. Please try it and open an [Issue](https://github.com/firepooh/RigolWidget/issues) if anything is off.
+- **CH3**: shown as a third row (amber) when the model has it. DP832 CH3 is 0–5V/3A.
+- 🟡 **DP811(A)**: single-channel model, so only CH1 is shown (CH2/CH3 hidden).
+- ⚠ **DP831(A) CH3**: a negative rail (0 to −30V); the positive-oriented UI does not support it, so DP831 is shown as 2 channels.
 - ❌ **DP700 series**: uses a different, RS232-based command set and is not supported.
 
 ## AI control (embedded MCP server)

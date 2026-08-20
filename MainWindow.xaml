@@ -24,8 +24,12 @@
         <SolidColorBrush x:Key="Ch2Unit" Color="#8CEAFF"/>
         <SolidColorBrush x:Key="Ch1Set" Color="#9FD8B6"/>
         <SolidColorBrush x:Key="Ch2Set" Color="#A3D9E8"/>
+        <SolidColorBrush x:Key="Ch3Set" Color="#E8D3A6"/>
         <SolidColorBrush x:Key="Ch1RowTint" Color="#0F35C24A"/>
         <SolidColorBrush x:Key="Ch2RowTint" Color="#0F22BCD4"/>
+        <SolidColorBrush x:Key="Ch3RowTint" Color="#0FE6A23C"/>
+        <SolidColorBrush x:Key="Ch3SegText" Color="#FFE9C2"/>
+        <SolidColorBrush x:Key="Ch3Unit" Color="#FFD98A"/>
         <SolidColorBrush x:Key="TripRed" Color="#E0322F"/>
         <SolidColorBrush x:Key="TripLabel" Color="#FF5A5A"/>
         <SolidColorBrush x:Key="ProtCardBg" Color="#09FFFFFF"/>
@@ -445,6 +449,143 @@
                             </Border>
                         </StackPanel>
                     </Border>
+
+                    <!-- Divider (CH3) -->
+                    <Border x:Name="RowDivider2" Height="1" Background="{StaticResource Divider}" Margin="0,3"/>
+
+                    <!-- ===== CH3 row ===== -->
+                    <Border x:Name="Ch3Row" Background="{StaticResource Ch3RowTint}" CornerRadius="5" Padding="8,3"
+                            BorderBrush="{StaticResource Ch3Accent}" BorderThickness="2,0,0,0">
+                        <StackPanel Orientation="Horizontal">
+                            <Border x:Name="Ch3Track" Width="22" Height="44" CornerRadius="11"
+                                    Background="#24FFFFFF" VerticalAlignment="Center" Cursor="Hand"
+                                    MouseLeftButtonDown="Ch3Dot_Click" ToolTip="Output ON/OFF">
+                                <Canvas>
+                                    <Ellipse x:Name="Ch3Knob" Width="16" Height="16" Fill="White"
+                                             Canvas.Left="2" Canvas.Top="24">
+                                        <Ellipse.Effect>
+                                            <DropShadowEffect BlurRadius="2" ShadowDepth="1" Direction="270"
+                                                              Opacity="0.5" Color="Black"/>
+                                        </Ellipse.Effect>
+                                    </Ellipse>
+                                </Canvas>
+                            </Border>
+
+                            <TextBlock Text="CH3" Foreground="{StaticResource Ch3Accent}" FontWeight="ExtraBold"
+                                       FontSize="15" Margin="7,0,0,0" VerticalAlignment="Center"/>
+
+                            <StackPanel Margin="7,0,0,0" VerticalAlignment="Center" ToolTip="Operating mode (CV/CC)">
+                                <Border x:Name="Ch3CvChip" CornerRadius="3" Padding="6,3"
+                                        Background="Transparent" BorderBrush="{StaticResource ChipInactiveBorder}"
+                                        BorderThickness="1">
+                                    <TextBlock x:Name="Ch3CvText" Text="CV" Style="{StaticResource ModeChipText}"
+                                               Foreground="{StaticResource ChipInactiveFg}"/>
+                                </Border>
+                                <Border x:Name="Ch3CcChip" CornerRadius="3" Padding="6,3" Margin="0,2,0,0"
+                                        Background="Transparent" BorderBrush="{StaticResource ChipInactiveBorder}"
+                                        BorderThickness="1">
+                                    <TextBlock x:Name="Ch3CcText" Text="CC" Style="{StaticResource ModeChipText}"
+                                               Foreground="{StaticResource ChipInactiveFg}"/>
+                                </Border>
+                            </StackPanel>
+
+                            <Border Background="{StaticResource VfdBg}" CornerRadius="4" Padding="8,4,8,5"
+                                    BorderBrush="#0AFFFFFF" BorderThickness="1" Margin="10,0,0,0"
+                                    VerticalAlignment="Center" Cursor="Hand" Tag="3,V"
+                                    MouseLeftButtonUp="Vfd_Click" MouseWheel="Vfd_Wheel">
+                                <StackPanel Orientation="Horizontal" Background="Transparent">
+                                    <TextBlock x:Name="Ch3MeasV" Text="0.000" FontFamily="{StaticResource Dseg7}"
+                                               FontWeight="Bold" FontSize="27" Foreground="{StaticResource Ch3SegText}"
+                                               Width="112" TextAlignment="Right">
+                                        <TextBlock.Effect>
+                                            <DropShadowEffect Color="#FFC24D" BlurRadius="12" ShadowDepth="0" Opacity="0.9"/>
+                                        </TextBlock.Effect>
+                                    </TextBlock>
+                                    <TextBlock Text="V" Foreground="{StaticResource Ch3Unit}" FontWeight="Bold"
+                                               FontSize="20" VerticalAlignment="Bottom" Margin="5,0,0,0"/>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Background="{StaticResource VfdBg}" CornerRadius="4" Padding="8,4,8,5"
+                                    BorderBrush="#0AFFFFFF" BorderThickness="1" Margin="6,0,0,0"
+                                    VerticalAlignment="Center" Cursor="Hand" Tag="3,A"
+                                    MouseLeftButtonUp="Vfd_Click" MouseWheel="Vfd_Wheel">
+                                <StackPanel Orientation="Horizontal" Background="Transparent">
+                                    <TextBlock x:Name="Ch3MeasA" Text="0.000" FontFamily="{StaticResource Dseg7}"
+                                               FontWeight="Bold" FontSize="27" Foreground="{StaticResource Ch3SegText}"
+                                               Width="95" TextAlignment="Right">
+                                        <TextBlock.Effect>
+                                            <DropShadowEffect Color="#FFC24D" BlurRadius="12" ShadowDepth="0" Opacity="0.9"/>
+                                        </TextBlock.Effect>
+                                    </TextBlock>
+                                    <TextBlock Text="A" Foreground="{StaticResource Ch3Unit}" FontWeight="Bold"
+                                               FontSize="20" VerticalAlignment="Bottom" Margin="5,0,0,0"/>
+                                </StackPanel>
+                            </Border>
+
+                            <StackPanel Margin="8,0,0,0" VerticalAlignment="Center" MinWidth="64">
+                                <TextBlock x:Name="Ch3SetVText" Text="0.000 V" FontFamily="Consolas" FontWeight="Bold"
+                                           FontSize="15" Foreground="{StaticResource Ch3Set}" TextAlignment="Right"/>
+                                <TextBlock x:Name="Ch3SetAText" Text="0.000 A" FontFamily="Consolas" FontWeight="Bold"
+                                           FontSize="15" Foreground="{StaticResource Ch3Set}" TextAlignment="Right"
+                                           Margin="0,4,0,0"/>
+                            </StackPanel>
+
+                            <Border Background="{StaticResource ProtCardBg}" BorderBrush="{StaticResource ProtCardBorder}"
+                                    BorderThickness="1" CornerRadius="6" Padding="7,5" Margin="10,0,0,0"
+                                    VerticalAlignment="Center">
+                                <StackPanel>
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                        <StackPanel Orientation="Horizontal" Cursor="Hand" Background="Transparent"
+                                                    MouseLeftButtonDown="Ch3Ocp_Click" VerticalAlignment="Center">
+                                            <Border x:Name="Ch3OcpBox" Width="12" Height="12" CornerRadius="3"
+                                                    Background="Transparent" BorderBrush="#40FFFFFF" BorderThickness="1">
+                                                <TextBlock x:Name="Ch3OcpMark" Text="✓" FontSize="9" FontWeight="Bold"
+                                                           Foreground="{StaticResource CheckFg}" HorizontalAlignment="Center"
+                                                           VerticalAlignment="Center" Visibility="Collapsed"/>
+                                            </Border>
+                                            <TextBlock x:Name="Ch3OcpLabel" Text="OCP" Foreground="{StaticResource SubText2}"
+                                                       FontWeight="Bold" FontSize="8" Margin="3,0,5,0" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                        <TextBox x:Name="Ch3OcpVal" Style="{StaticResource SmallInput}" Text="3.000"
+                                                 KeyDown="ProtVal_KeyDown" LostFocus="ProtVal_Commit" Tag="3,OCP"/>
+                                        <TextBlock Text="A" Foreground="{StaticResource SubText2}" FontWeight="Bold"
+                                                   FontSize="8" Width="8" Margin="3,0,0,0" VerticalAlignment="Center"/>
+                                        <Border x:Name="Ch3OcpTrip" Background="{StaticResource TripRed}" CornerRadius="3"
+                                                Padding="4,2" Margin="3,0,0,0" Cursor="Hand" Visibility="Collapsed"
+                                                Tag="3,OCP" MouseLeftButtonDown="Trip_Click" ToolTip="Click: clear trip">
+                                            <TextBlock Text="TRIP" Foreground="White" FontWeight="ExtraBold" FontSize="8"/>
+                                        </Border>
+                                    </StackPanel>
+
+                                    <Border Height="1" Background="#12FFFFFF" Margin="0,4"/>
+
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                        <StackPanel Orientation="Horizontal" Cursor="Hand" Background="Transparent"
+                                                    MouseLeftButtonDown="Ch3Ocv_Click" VerticalAlignment="Center">
+                                            <Border x:Name="Ch3OcvBox" Width="12" Height="12" CornerRadius="3"
+                                                    Background="Transparent" BorderBrush="#40FFFFFF" BorderThickness="1">
+                                                <TextBlock x:Name="Ch3OcvMark" Text="✓" FontSize="9" FontWeight="Bold"
+                                                           Foreground="{StaticResource CheckFg}" HorizontalAlignment="Center"
+                                                           VerticalAlignment="Center" Visibility="Collapsed"/>
+                                            </Border>
+                                            <TextBlock x:Name="Ch3OcvLabel" Text="OCV" Foreground="{StaticResource SubText2}"
+                                                       FontWeight="Bold" FontSize="8" Margin="3,0,5,0" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                        <TextBox x:Name="Ch3OcvVal" Style="{StaticResource SmallInput}" Text="33.00"
+                                                 KeyDown="ProtVal_KeyDown" LostFocus="ProtVal_Commit" Tag="3,OCV"/>
+                                        <TextBlock Text="V" Foreground="{StaticResource SubText2}" FontWeight="Bold"
+                                                   FontSize="8" Width="8" Margin="3,0,0,0" VerticalAlignment="Center"/>
+                                        <Border x:Name="Ch3OcvTrip" Background="{StaticResource TripRed}" CornerRadius="3"
+                                                Padding="4,2" Margin="3,0,0,0" Cursor="Hand" Visibility="Collapsed"
+                                                Tag="3,OCV" MouseLeftButtonDown="Trip_Click" ToolTip="Click: clear trip">
+                                            <TextBlock Text="TRIP" Foreground="White" FontWeight="ExtraBold" FontSize="8"/>
+                                        </Border>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </Border>
                 </StackPanel>
 
                 <!-- ===== Body (mini mode) - output toggle + measured V/A only, channels side by side ===== -->
@@ -547,6 +688,58 @@
                                             </TextBlock.Effect>
                                         </TextBlock>
                                         <TextBlock Text="A" Foreground="{StaticResource Ch2Unit}" FontWeight="Bold"
+                                                   FontSize="14" VerticalAlignment="Bottom" Margin="4,0,0,0"/>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- CH3 mini cell -->
+                    <Border x:Name="MiniCh3Cell" Background="{StaticResource Ch3RowTint}" CornerRadius="5" Padding="6,3" Margin="5,0,0,0"
+                            BorderBrush="{StaticResource Ch3Accent}" BorderThickness="2,0,0,0">
+                        <StackPanel Orientation="Horizontal">
+                            <Border x:Name="MiniCh3Track" Width="22" Height="44" CornerRadius="11"
+                                    Background="#24FFFFFF" VerticalAlignment="Center" Cursor="Hand"
+                                    MouseLeftButtonDown="Ch3Dot_Click" ToolTip="Output ON/OFF">
+                                <Canvas>
+                                    <Ellipse x:Name="MiniCh3Knob" Width="16" Height="16" Fill="White"
+                                             Canvas.Left="2" Canvas.Top="24">
+                                        <Ellipse.Effect>
+                                            <DropShadowEffect BlurRadius="2" ShadowDepth="1" Direction="270"
+                                                              Opacity="0.5" Color="Black"/>
+                                        </Ellipse.Effect>
+                                    </Ellipse>
+                                </Canvas>
+                            </Border>
+                            <TextBlock Text="CH3" Foreground="{StaticResource Ch3Accent}" FontWeight="ExtraBold"
+                                       FontSize="14" Margin="6,0,0,0" VerticalAlignment="Center"/>
+                            <StackPanel Margin="7,0,0,0" VerticalAlignment="Center">
+                                <Border Background="{StaticResource VfdBg}" CornerRadius="4" Padding="5,3,5,4"
+                                        BorderBrush="#0AFFFFFF" BorderThickness="1">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock x:Name="MiniCh3MeasV" Text="0.000" FontFamily="{StaticResource Dseg7}"
+                                                   FontWeight="Bold" FontSize="19" Foreground="{StaticResource Ch3SegText}"
+                                                   Width="78" TextAlignment="Right">
+                                            <TextBlock.Effect>
+                                                <DropShadowEffect Color="#FFC24D" BlurRadius="10" ShadowDepth="0" Opacity="0.9"/>
+                                            </TextBlock.Effect>
+                                        </TextBlock>
+                                        <TextBlock Text="V" Foreground="{StaticResource Ch3Unit}" FontWeight="Bold"
+                                                   FontSize="14" VerticalAlignment="Bottom" Margin="4,0,0,0"/>
+                                    </StackPanel>
+                                </Border>
+                                <Border Background="{StaticResource VfdBg}" CornerRadius="4" Padding="5,3,5,4"
+                                        BorderBrush="#0AFFFFFF" BorderThickness="1" Margin="0,3,0,0">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock x:Name="MiniCh3MeasA" Text="0.000" FontFamily="{StaticResource Dseg7}"
+                                                   FontWeight="Bold" FontSize="19" Foreground="{StaticResource Ch3SegText}"
+                                                   Width="78" TextAlignment="Right">
+                                            <TextBlock.Effect>
+                                                <DropShadowEffect Color="#FFC24D" BlurRadius="10" ShadowDepth="0" Opacity="0.9"/>
+                                            </TextBlock.Effect>
+                                        </TextBlock>
+                                        <TextBlock Text="A" Foreground="{StaticResource Ch3Unit}" FontWeight="Bold"
                                                    FontSize="14" VerticalAlignment="Bottom" Margin="4,0,0,0"/>
                                     </StackPanel>
                                 </Border>
