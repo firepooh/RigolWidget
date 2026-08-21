@@ -1,17 +1,31 @@
 using System.Windows;
 using System.Windows.Input;
+using RigolWidget.Services;
 using RigolWidget.Visa;
 
 namespace RigolWidget.Windows;
 
 public partial class DeviceSelectWindow : Window
 {
+    private readonly AppSettings _settings;
+
     /// <summary>The selected/confirmed device resource string (on successful connection).</summary>
     public string? SelectedResource { get; private set; }
 
-    public DeviceSelectWindow()
+    /// <param name="settings">Used to preselect the remembered device and to store the choice.</param>
+    /// <param name="notice">Optional message explaining why this window appeared (e.g. saved device missing).</param>
+    public DeviceSelectWindow(AppSettings settings, string? notice = null)
     {
         InitializeComponent();
+        _settings = settings;
+        RememberBox.IsChecked = settings.AutoConnect;
+
+        if (!string.IsNullOrEmpty(notice))
+        {
+            NoticeText.Text = notice;
+            NoticeBox.Visibility = Visibility.Visible;
+        }
+
         Loaded += (_, _) => RefreshDevices();
     }
 
@@ -33,7 +47,10 @@ public partial class DeviceSelectWindow : Window
 
             if (DeviceList.Items.Count > 0)
             {
-                DeviceList.SelectedIndex = 0;
+                // Preselect the remembered device (also matches when only the USB index changed).
+                string? saved = DeviceResolver.Resolve(_settings.LastResource, devices);
+                DeviceList.SelectedItem = saved;
+                if (DeviceList.SelectedIndex < 0) DeviceList.SelectedIndex = 0;
                 EmptyHint.Visibility = Visibility.Collapsed;
                 StatusText.Text = $"{DeviceList.Items.Count} USB device(s) found";
             }
@@ -63,6 +80,11 @@ public partial class DeviceSelectWindow : Window
             StatusText.Text = "Please select a device.";
             return;
         }
+
+        // Remember the choice so the next launch can skip this window.
+        _settings.AutoConnect = RememberBox.IsChecked == true;
+        _settings.LastResource = resource;
+        _settings.Save();
 
         // Actual connection is validated by the main window RigolConnection; here we only confirm the selection.
         SelectedResource = resource;

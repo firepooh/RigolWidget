@@ -4,11 +4,16 @@ using System.Text.Json;
 namespace RigolWidget.Services;
 
 /// <summary>
-/// App settings (%APPDATA%\RigolWidget\settings.json). Currently holds only the embedded MCP server settings.
+/// App settings (%APPDATA%\RigolWidget\settings.json): last device + embedded MCP server settings.
 /// Save failures are ignored (not fatal).
 /// </summary>
 public sealed class AppSettings
 {
+    // Skip the device-select window and reconnect to LastResource on startup
+    public bool AutoConnect { get; set; } = true;
+    // VISA resource string of the last connected device (e.g. USB0::0x1AB1::0x0E11::DP8...::INSTR)
+    public string? LastResource { get; set; }
+
     // Whether the embedded MCP server is enabled (off by default — requires explicit activation)
     public bool McpEnabled { get; set; }
     // Whether the MCP server allows control (write) commands (off by default — read-only)

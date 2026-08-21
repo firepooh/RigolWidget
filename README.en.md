@@ -19,6 +19,7 @@ An always-on-top **control widget for RIGOL DP800-series DC power supplies** for
 - **Output ON/OFF** — per-channel vertical toggle switch
 - **Voltage/current setpoints** — adjust directly by clicking the reading (popup) or with the mouse wheel
 - **Protection** — enable OCP (over-current) / OCV (over-voltage, SCPI OVP) and set thresholds; TRIP warning and clear on a protection event
+- **Auto-connect** — remembers the last device and skips the selection window on later launches (falls back to the selection window when the instrument is swapped)
 - **Auto reconnect** — keeps retrying the last device if USB drops during operation
 - **AI control (embedded MCP server)** — an MCP client such as Claude can read and control the supply in natural language (off by default, opt-in)
 - **Widget UX** — always on top, frameless drag-to-move, opacity control, magnetic edge snapping
@@ -30,6 +31,22 @@ An always-on-top **control widget for RIGOL DP800-series DC power supplies** for
 When you launch the app, a device-selection window appears first. Pick your DP832 from the list of connected USB instruments and connect. (USB interface only)
 
 ![Device selection](docs/device-select.png)
+
+#### Auto-connect (skip this window from the second launch on)
+
+Connect with **`Remember this device and connect automatically`** checked, and the next launch connects straight to that instrument — no selection window. Handy for a fixed bench setup.
+
+| Situation | Behaviour |
+|---|---|
+| Saved device is present | Connects immediately, no window |
+| Same device moved to another USB port | **Matched by serial number** and connected (the changed `USB0→USB1` prefix is re-saved) |
+| Device replaced / missing | Selection window with a short explanation |
+| USB not enumerated yet (just after boot) | Rescans up to 3 times (~2 s) before giving up |
+
+- **Show the window again**: hold `Shift` while launching, or run `RigolWidget.exe --select`
+- **Swap devices while running**: **right-click the title bar → `Change Device…`** (no restart; the new instrument's model and channel count are re-detected)
+- **Pin a device in a shortcut**: `RigolWidget.exe --device "USB0::0x1AB1::0x0E11::DP8C200300243::INSTR"`
+- Stored as `AutoConnect` / `LastResource` in `%APPDATA%\RigolWidget\settings.json`.
 
 ### 2. Operate the main widget
 
@@ -46,6 +63,7 @@ When you launch the app, a device-selection window appears first. Pick your DP83
 | **Mini mode** | Toggle full ↔ mini | **Double-click** the title bar |
 | **Opacity** | Solid ↔ transparent | **Mouse wheel** over the title bar |
 | **Always on top** | Toggle TopMost | Title-bar 📌 button, or the right-click menu |
+| **Change device** | Switch to another instrument | Title-bar **right-click → `Change Device…`** |
 | **Version / Close** | — | Title-bar **right-click** menu |
 
 ### 3. Mini mode

@@ -15,7 +15,7 @@ public sealed class RigolConnection : IDisposable
     private volatile bool _connected;
     private bool _disposed;
 
-    public string Resource { get; }
+    public string Resource { get; private set; }
 
     /// <summary>Raised when the connection state changes (true = connected).</summary>
     public event Action<bool>? ConnectionChanged;
@@ -36,6 +36,25 @@ public sealed class RigolConnection : IDisposable
             Name = "RigolReconnect"
         };
         _reconnectThread.Start();
+    }
+
+    /// <summary>
+    /// Point the connection at a different instrument (device swapped while running).
+    /// Closes the current session and opens the new resource immediately; the reconnect loop keeps
+    /// retrying if it is not ready yet. Listeners see Disconnected -> Connected, so the model is re-identified.
+    /// </summary>
+    public void SwitchResource(string resource)
+    {
+        lock (_ioLock)
+        {
+            if (string.Equals(resource, Resource, StringComparison.OrdinalIgnoreCase) && _connected)
+                return;
+
+            DebugLog.Write($"Switching device: {Resource} -> {resource}");
+            Drop();
+            Resource = resource;
+        }
+        TryOpen();   // takes the lock itself
     }
 
     private void ReconnectLoop()

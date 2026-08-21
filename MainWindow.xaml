@@ -123,6 +123,9 @@
                             <MenuItem x:Name="PinMenu" Header="Always on Top" IsCheckable="True"
                                       IsChecked="True" Click="PinMenu_Click"/>
                             <Separator/>
+                            <MenuItem Header="Change Device…" Click="ChangeDeviceMenu_Click"
+                                      ToolTip="Connect to another instrument without restarting."/>
+                            <Separator/>
                             <MenuItem x:Name="McpServerMenu" Header="MCP Server" IsCheckable="True"
                                       Click="McpServerMenu_Click"/>
                             <MenuItem x:Name="McpControlMenu" Header="Allow MCP Control" IsCheckable="True"

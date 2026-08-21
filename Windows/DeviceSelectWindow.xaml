@@ -16,6 +16,7 @@
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
                 <RowDefinition Height="*"/>
                 <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
@@ -43,8 +44,15 @@
                 </StackPanel>
             </Border>
 
+            <!-- Notice (shown when auto-connect could not find the saved device) -->
+            <Border x:Name="NoticeBox" Grid.Row="2" Margin="14,6,14,6" Padding="10,7"
+                    Background="#2A2109" BorderBrush="#5C4A12" BorderThickness="1" CornerRadius="4"
+                    Visibility="Collapsed">
+                <TextBlock x:Name="NoticeText" Foreground="#F2C55C" FontSize="12" TextWrapping="Wrap"/>
+            </Border>
+
             <!-- Device list -->
-            <Border Grid.Row="2" Background="#0F1013" Margin="14,0,14,0"
+            <Border Grid.Row="3" Background="#0F1013" Margin="14,0,14,0"
                     BorderBrush="#2A2D34" BorderThickness="1">
                 <Grid>
                     <ListBox x:Name="DeviceList" Background="Transparent" BorderThickness="0"
@@ -74,9 +82,13 @@
             </Border>
 
             <!-- Bottom buttons -->
-            <Grid Grid.Row="3" Margin="14,12,14,14">
-                <TextBlock x:Name="StatusText" Foreground="#7C828A" FontSize="11"
-                           VerticalAlignment="Center" HorizontalAlignment="Left"/>
+            <Grid Grid.Row="4" Margin="14,12,14,14">
+                <StackPanel HorizontalAlignment="Left" VerticalAlignment="Center">
+                    <CheckBox x:Name="RememberBox" IsChecked="True" Foreground="#B9BFC6" FontSize="12"
+                              Content="Remember this device and connect automatically"
+                              ToolTip="Next launch skips this window. Hold Shift while starting (or run with --select) to show it again."/>
+                    <TextBlock x:Name="StatusText" Foreground="#7C828A" FontSize="11" Margin="0,5,0,0"/>
+                </StackPanel>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                     <Button Content="Refresh" Click="Refresh_Click"
                             Padding="16,7" Margin="0,0,8,0" Cursor="Hand"

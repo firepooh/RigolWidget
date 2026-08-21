@@ -10,6 +10,7 @@ using System.Windows.Threading;
 using RigolWidget.Mcp;
 using RigolWidget.Services;
 using RigolWidget.Visa;
+using RigolWidget.Windows;
 
 namespace RigolWidget;
 
@@ -807,6 +808,22 @@ public partial class MainWindow : Window
     private void PinMenu_Click(object sender, RoutedEventArgs e) => SetPinned(PinMenu.IsChecked);
 
     private void CloseMenu_Click(object sender, RoutedEventArgs e) => Close();
+
+    /// <summary>Swap to another instrument at runtime (device replaced) without restarting the app.</summary>
+    private void ChangeDeviceMenu_Click(object sender, RoutedEventArgs e)
+    {
+        bool pinned = Topmost;
+        Topmost = false;   // otherwise the widget covers the modal dialog
+
+        var dlg = new DeviceSelectWindow(_settings) { Owner = this };
+        bool? ok = dlg.ShowDialog();
+
+        Topmost = pinned;
+        if (ok != true || string.IsNullOrEmpty(dlg.SelectedResource)) return;
+
+        _identified = false;                          // re-run *IDN? -> ratings/channel count for the new device
+        _conn.SwitchResource(dlg.SelectedResource!);
+    }
 
     // ================= Embedded MCP server =================
 
