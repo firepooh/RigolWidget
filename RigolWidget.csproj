@@ -15,8 +15,9 @@
     <AssemblyName>RigolWidget</AssemblyName>
     <RootNamespace>RigolWidget</RootNamespace>
     <ApplicationIcon>Assets\app.ico</ApplicationIcon>
-    <Version>1.6.0</Version>
+    <Version>1.7.0</Version>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <NoWarn>$(NoWarn);MCPEXP003</NoWarn>
   </PropertyGroup>
 
   <!-- WinForms 전역 using 제거: WPF 타입과의 모호성 방지 (Screen은 EdgeSnap에서 별칭 사용) -->
@@ -25,10 +26,16 @@
     <Using Remove="System.Drawing" />
   </ItemGroup>
 
-  <!-- 내장 MCP 서버 (Streamable HTTP, 127.0.0.1) -->
+  <!-- 내장 MCP 서버 (Streamable HTTP, 127.0.0.1) + MCP Apps 확장 (실험적: MCPEXP003) -->
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
-    <PackageReference Include="ModelContextProtocol.AspNetCore" Version="1.4.1" />
+    <PackageReference Include="ModelContextProtocol.AspNetCore" Version="2.2.0" />
+    <PackageReference Include="ModelContextProtocol.Extensions.Apps" Version="2.2.0" />
+  </ItemGroup>
+
+  <!-- MCP App(제어 패널) HTML: 단일 파일 배포에서도 읽히도록 어셈블리에 임베드 -->
+  <ItemGroup>
+    <EmbeddedResource Include="Mcp\panel.html" />
   </ItemGroup>
 
   <!-- 임베드 폰트: DSEG7 Classic Bold (7세그먼트, SIL OFL) -->

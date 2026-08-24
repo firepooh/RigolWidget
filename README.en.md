@@ -194,14 +194,27 @@ Ask Claude in natural language and it calls the tools below on its own:
 
 ### Tools
 
-| Tool | Description | Control required |
-|---|---|:---:|
-| `get_status` | Read all channels' measurements, setpoints, output, CV/CC, OCP/OVP and trip status | — |
-| `get_identity` | Read model name and IDN | — |
-| `set_voltage` / `set_current` | Set channel voltage / current limit | ✅ |
-| `set_output` | Channel output ON/OFF | ✅ |
-| `set_ocp` / `set_ovp` | Enable over-current / over-voltage protection and set thresholds | ✅ |
-| `clear_trip` | Clear a protection trip (OCP/OVP) | ✅ |
+| Tool | Description | Hint | Control required |
+|---|---|:---:|:---:|
+| `get_status` | Read all channels' measurements, setpoints, output, CV/CC, OCP/OVP and trip status | read-only | — |
+| `get_identity` | Read model name, IDN and channel count | read-only | — |
+| `show_panel` | **Render a live control panel inside the chat** (MCP Apps) | read-only | — |
+| `set_voltage` / `set_current` | Set channel voltage / current limit | mutating | ✅ |
+| `set_output` | Channel output ON/OFF | mutating | ✅ |
+| `set_ocp` / `set_ovp` | Enable over-current / over-voltage protection and set thresholds | mutating | ✅ |
+| `clear_trip` | Clear a protection trip (OCP/OVP) | mutating | ✅ |
+
+Every tool also publishes MCP **tool annotations** (`readOnlyHint` / `destructiveHint` / `idempotentHint` / `openWorldHint`), so a client can tell "look at the instrument" apart from "change the instrument" — e.g. auto-approve the read tools and confirm only the mutating ones. The read tools additionally return **structured output** (`structuredContent` + `outputSchema`), so clients read values by schema instead of parsing text.
+
+### Control panel inside the chat (MCP Apps)
+
+Calling `show_panel` renders a working control panel right in the conversation: live measurements for every channel, plus output toggles, setpoint entry and trip clearing.
+
+![MCP control panel in the chat](docs/mcp-panel.png)
+
+> Just ask for it ("open the RIGOL panel"). The panel's buttons are enabled only while **"Allow MCP Control"** is on; otherwise it shows the notice above.
+>
+> MCP Apps is an extension to the MCP standard, so the panel appears only in clients that support it (Claude desktop/web, VS Code Copilot, …). Elsewhere `show_panel` simply returns the same text and structured data as `get_status`.
 
 ### Safety
 
@@ -212,6 +225,11 @@ Since an AI is controlling real hardware, safety comes first:
 - **Local only**: bound to `127.0.0.1` (your PC only); not reachable from external networks.
 - **Rating clamp**: every setpoint is automatically limited to the detected model's ratings (e.g. cannot exceed 30V/3A).
 - **Command log**: every write command from the AI is logged to `%LOCALAPPDATA%\RigolWidget\rigolwidget.log`.
+- **Refusals are errors**: a write attempted while control is off comes back as a tool *error*, not a successful response, so the AI cannot mistake it for success.
+
+### Protocol / compatibility
+
+The embedded server is built on MCP C# SDK **2.2.0** and supports the current spec revision **2026-07-28** (stateless requests, `server/discover`, caching hints). Clients that still use the `initialize` handshake (**2025-11-25 and earlier**) keep working too, via hybrid session mode — no change needed to an existing Claude Code/Desktop setup.
 
 ## Download
 

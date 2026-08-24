@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using ModelContextProtocol.AspNetCore;
+using ModelContextProtocol.Extensions.Apps;
 using RigolWidget.Visa;
 
 namespace RigolWidget.Mcp;
@@ -33,8 +35,12 @@ public sealed class RigolMcpServer
 
             builder.Services.AddSingleton(_context);
             builder.Services.AddMcpServer()
-                .WithHttpTransport()
-                .WithTools<RigolTools>();
+                // Stateless is the 2026-07-28 default; keep sessions for clients that still use
+                // the initialize handshake (2025-11-25 and earlier) so both generations work.
+                .WithHttpTransport(o => o.SessionMode = HttpServerSessionMode.StatefulForInitializeClients)
+                .WithTools<RigolTools>()
+                .WithResources<RigolUiResources>()   // ui:// control panel (MCP Apps)
+                .WithMcpApps();
 
             var app = builder.Build();
             app.MapMcp();

@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RIGOL Control Panel</title>
+<style>
+  :root {
+    --bg:#0E0F12; --card:#16171B; --card2:#1C1E23; --border:#2A2D34;
+    --text:#DDE1E6; --muted:#7C828A; --brand:#F2A900;
+    --ch1:#35C24A; --ch2:#22BCD4; --ch3:#E6A23C; --danger:#E05050;
+    --mono:'Cascadia Mono',Consolas,'SF Mono',monospace;
+    --font:'Segoe UI',system-ui,-apple-system,sans-serif;
+  }
+  @media (prefers-color-scheme: light) {
+    :root { --bg:#F7F8FA; --card:#FFFFFF; --card2:#F0F2F5; --border:#DDE1E6; --text:#1B1C20; --muted:#6B7077; }
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font:13px/1.45 var(--font); background:var(--bg); color:var(--text); padding:12px; }
+  .head { display:flex; align-items:center; gap:8px; margin-bottom:10px; flex-wrap:wrap; }
+  .model { font-weight:800; color:var(--brand); font-size:15px; letter-spacing:.02em; }
+  .dot { width:7px; height:7px; border-radius:50%; background:var(--ch1); }
+  .dot.off { background:var(--danger); }
+  .state { color:var(--muted); font-size:11px; }
+  .spacer { margin-left:auto; }
+  button { font:inherit; border:1px solid var(--border); background:var(--card2); color:var(--text);
+           padding:5px 11px; border-radius:5px; cursor:pointer; }
+  button:hover:not(:disabled) { border-color:var(--brand); }
+  button:disabled { opacity:.45; cursor:not-allowed; }
+  button.on  { background:var(--ch1); border-color:var(--ch1); color:#0B1410; font-weight:700; }
+  button.off { background:transparent; }
+  button.warn { border-color:var(--danger); color:var(--danger); }
+  label.auto { font-size:11px; color:var(--muted); display:flex; align-items:center; gap:5px; cursor:pointer; }
+  .banner { background:#2A2109; border:1px solid #5C4A12; color:#F2C55C; padding:7px 10px;
+            border-radius:5px; font-size:12px; margin-bottom:10px; }
+  .cards { display:flex; flex-direction:column; gap:8px; }
+  .card { background:var(--card); border:1px solid var(--border); border-left:3px solid var(--accent);
+          border-radius:7px; padding:9px 11px; display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+  .chname { font-weight:800; font-size:15px; color:var(--accent); min-width:38px; }
+  .chip { font-size:10px; font-weight:800; padding:2px 6px; border-radius:3px;
+          border:1px solid var(--border); color:var(--muted); }
+  .chip.act { background:var(--accent); border-color:var(--accent); color:#0B1410; }
+  .meas { display:flex; gap:10px; font-family:var(--mono); }
+  .meas div { text-align:right; }
+  .meas .v { font-size:19px; font-weight:700; color:var(--accent); }
+  .meas .u { font-size:10px; color:var(--muted); margin-left:2px; font-family:var(--font); }
+  .set { display:flex; align-items:center; gap:5px; }
+  .set input { width:78px; padding:4px 6px; font:12px var(--mono); text-align:right;
+               background:var(--bg); color:var(--text); border:1px solid var(--border); border-radius:4px;
+               -moz-appearance:textfield; }
+  .set input::-webkit-outer-spin-button,
+  .set input::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
+  .set input:focus { outline:none; border-color:var(--brand); }
+  .set span { font-size:10px; color:var(--muted); }
+  .prot { display:flex; flex-direction:column; gap:3px; font-size:10px; color:var(--muted); }
+  .prot b { color:var(--text); font-family:var(--mono); font-weight:600; }
+  .trip { color:#fff; background:var(--danger); border-radius:3px; padding:1px 5px;
+          font-weight:800; cursor:pointer; }
+  .status { margin-top:10px; font-size:11px; color:var(--muted); }
+  .status.err { color:var(--danger); }
+  .empty { padding:26px; text-align:center; color:var(--muted); }
+</style>
+</head>
+<body>
+  <div class="head">
+    <span class="dot" id="dot"></span>
+    <span class="model" id="model">RIGOL DP800</span>
+    <span class="state" id="ctrl"></span>
+    <span class="spacer"></span>
+    <label class="auto"><input type="checkbox" id="auto"> auto 2s</label>
+    <button id="refresh">Refresh</button>
+  </div>
+  <div class="banner" id="banner" hidden></div>
+  <div class="cards" id="cards"><div class="empty">Loading…</div></div>
+  <div class="status" id="status">Connecting…</div>
+
+<script>
+'use strict';
+const ACCENT = ['var(--ch1)', 'var(--ch2)', 'var(--ch3)'];
+
+/* ---------- host bridge (postMessage JSON-RPC) ---------- */
+let nextId = 1;
+const pending = new Map();
+
+function request(method, params) {
+  const id = nextId++;
+  return new Promise((resolve, reject) => {
+    pending.set(id, { resolve, reject });
+    window.parent.postMessage({ jsonrpc: '2.0', id, method, params: params || {} }, '*');
+  });
+}
+function notify(method, params) {
+  window.parent.postMessage({ jsonrpc: '2.0', method, params: params || {} }, '*');
+}
+window.addEventListener('message', (e) => {
+  const msg = e.data;
+  if (!msg || msg.jsonrpc !== '2.0') return;
+  if (msg.id !== undefined && pending.has(msg.id)) {
+    const { resolve, reject } = pending.get(msg.id);
+    pending.delete(msg.id);
+    msg.error ? reject(new Error(msg.error.message || JSON.stringify(msg.error))) : resolve(msg.result);
+    return;
+  }
+  if (msg.method === 'ui/notifications/tool-result') {
+    const sc = msg.params && msg.params.structuredContent;
+    if (sc) { render(sc); setStatus('Updated from tool result'); }
+  }
+});
+
+function callTool(name, args) {
+  return request('tools/call', { name, arguments: args || {} });
+}
+
+/* ---------- helpers ---------- */
+// The server may serialize either camelCase or snake_case; accept both.
+function pick(obj, ...names) {
+  for (const n of names) if (obj && obj[n] !== undefined) return obj[n];
+  return undefined;
+}
+const num = (v, d = 3) => (typeof v === 'number' ? v.toFixed(d) : '--');
+const esc = (s) => { const d = document.createElement('div'); d.textContent = s == null ? '' : s; return d.innerHTML; };
+function setStatus(msg, isErr) {
+  const el = document.getElementById('status');
+  el.textContent = msg;
+  el.className = 'status' + (isErr ? ' err' : '');
+}
+
+/* ---------- rendering ---------- */
+let controlAllowed = false;
+let busy = false;
+
+function render(st) {
+  const channels = pick(st, 'channels') || [];
+  controlAllowed = !!pick(st, 'controlAllowed', 'control_allowed');
+  document.getElementById('model').textContent = pick(st, 'model') || 'RIGOL DP800';
+  document.getElementById('dot').className = 'dot' + (channels.length ? '' : ' off');
+  document.getElementById('ctrl').textContent = controlAllowed ? 'control allowed' : 'read-only';
+
+  const banner = document.getElementById('banner');
+  if (controlAllowed) {
+    banner.hidden = true;
+  } else {
+    banner.hidden = false;
+    banner.textContent = 'Control is disabled — turn on "Allow MCP Control" in the widget right-click menu to use the buttons below.';
+  }
+
+  const host = document.getElementById('cards');
+  if (!channels.length) { host.innerHTML = '<div class="empty">No channels reported.</div>'; return; }
+
+  host.innerHTML = channels.map((c, i) => {
+    const ch = pick(c, 'channel') || (i + 1);
+    const on = !!pick(c, 'outputOn', 'output_on');
+    const m = pick(c, 'measured') || {};
+    const s = pick(c, 'setpoint') || {};
+    const ocp = pick(c, 'ocp') || {};
+    const ovp = pick(c, 'ovp') || {};
+    const mode = pick(c, 'mode') || '';
+    const accent = ACCENT[(ch - 1) % 3];
+    const dis = controlAllowed ? '' : 'disabled';
+    const trip = (p, kind) => pick(p, 'tripped')
+      ? `<span class="trip" data-trip="${kind}" data-ch="${ch}">TRIP ${kind.toUpperCase()} — clear</span>` : '';
+
+    return `<div class="card" style="--accent:${accent}">
+      <span class="chname">CH${ch}</span>
+      <button class="${on ? 'on' : 'off'}" data-out="${on ? '0' : '1'}" data-ch="${ch}" ${dis}>${on ? 'ON' : 'OFF'}</button>
+      <span class="chip ${mode === 'CV' ? 'act' : ''}">CV</span>
+      <span class="chip ${mode === 'CC' ? 'act' : ''}">CC</span>
+      <div class="meas">
+        <div><span class="v">${num(pick(m, 'volts'))}</span><span class="u">V</span></div>
+        <div><span class="v">${num(pick(m, 'amps'))}</span><span class="u">A</span></div>
+        <div><span class="v">${num(pick(m, 'watts'))}</span><span class="u">W</span></div>
+      </div>
+      <div class="set">
+        <input type="number" step="0.1" min="0" value="${num(pick(s, 'volts'))}" data-setv="${ch}" ${dis}><span>V</span>
+        <input type="number" step="0.01" min="0" value="${num(pick(s, 'amps'))}" data-seta="${ch}" ${dis}><span>A</span>
+        <button data-apply="${ch}" ${dis}>Set</button>
+      </div>
+      <div class="prot">
+        <span>OCP ${pick(ocp, 'enabled') ? 'on' : 'off'} <b>${num(pick(ocp, 'threshold'))} A</b> ${trip(ocp, 'ocp')}</span>
+        <span>OVP ${pick(ovp, 'enabled') ? 'on' : 'off'} <b>${num(pick(ovp, 'threshold'))} V</b> ${trip(ovp, 'ovp')}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+/* ---------- actions ---------- */
+async function refresh(quiet) {
+  if (busy) return;
+  busy = true;
+  try {
+    if (!quiet) setStatus('Reading…');
+    const res = await callTool('get_status');
+    const sc = res && res.structuredContent;
+    if (sc) { render(sc); setStatus('Updated ' + new Date().toLocaleTimeString()); }
+    else setStatus('No structured content in get_status result', true);
+  } catch (e) {
+    setStatus('Error: ' + e.message, true);
+  } finally {
+    busy = false;
+  }
+}
+
+document.getElementById('refresh').addEventListener('click', () => refresh(false));
+
+let timer = null;
+document.getElementById('auto').addEventListener('change', (e) => {
+  clearInterval(timer);
+  timer = e.target.checked ? setInterval(() => refresh(true), 2000) : null;
+});
+
+document.getElementById('cards').addEventListener('click', async (e) => {
+  const t = e.target;
+  try {
+    if (t.dataset.out !== undefined) {
+      const on = t.dataset.out === '1';
+      setStatus(`CH${t.dataset.ch} output ${on ? 'ON' : 'OFF'}…`);
+      await callTool('set_output', { channel: +t.dataset.ch, on });
+      await refresh(true);
+    } else if (t.dataset.apply !== undefined) {
+      const ch = +t.dataset.apply;
+      const v = parseFloat(document.querySelector(`[data-setv="${ch}"]`).value);
+      const a = parseFloat(document.querySelector(`[data-seta="${ch}"]`).value);
+      setStatus(`CH${ch} applying ${v} V / ${a} A…`);
+      if (!Number.isNaN(v)) await callTool('set_voltage', { channel: ch, volts: v });
+      if (!Number.isNaN(a)) await callTool('set_current', { channel: ch, amps: a });
+      await refresh(true);
+    } else if (t.dataset.trip !== undefined) {
+      setStatus(`Clearing CH${t.dataset.ch} ${t.dataset.trip.toUpperCase()} trip…`);
+      await callTool('clear_trip', { channel: +t.dataset.ch, kind: t.dataset.trip });
+      await refresh(true);
+    }
+  } catch (err) {
+    setStatus('Error: ' + err.message, true);
+  }
+});
+
+/* ---------- startup ---------- */
+(async function init() {
+  try {
+    const res = await request('ui/initialize', {
+      protocolVersion: '2025-06-18',
+      capabilities: {},
+      clientInfo: { name: 'rigol-control-panel', version: '1.0.0' }
+    });
+    notify('ui/notifications/initialized', {});
+    // show_panel already returned a status snapshot; use it when the host hands it over.
+    const sc = res && res.hostContext && res.hostContext.toolInfo && res.hostContext.toolInfo.result
+      && res.hostContext.toolInfo.result.structuredContent;
+    if (sc) { render(sc); setStatus('Ready'); }
+    else await refresh(false);
+  } catch (e) {
+    setStatus('Not running inside an MCP host: ' + e.message, true);
+    document.getElementById('cards').innerHTML =
+      '<div class="empty">This panel must be opened by an MCP client (show_panel tool).</div>';
+  }
+})();
+</script>
+</body>
+</html>
