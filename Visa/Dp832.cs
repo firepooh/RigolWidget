@@ -3,8 +3,7 @@ using System.Globalization;
 namespace RigolWidget.Visa;
 
 /// <summary>
-/// RIGOL DP832 SCPI control wrapper. Runs on top of RigolConnection and
-/// uses only channels 1 (CH1) and 2 (CH2).
+/// RIGOL DP800 SCPI control wrapper (CH1..CH3). Runs on top of RigolConnection.
 /// Queries return success/failure independently per field (if one fails, the rest are still usable).
 /// </summary>
 public sealed class Dp832
@@ -15,7 +14,30 @@ public sealed class Dp832
 
     public bool IsConnected => _conn.IsConnected;
 
+    /// <summary>Number of write commands sent so far (see <see cref="RigolConnection.WriteCount"/>).</summary>
+    public long WriteCount => _conn.WriteCount;
+
     private static string Ch(int channel) => "CH" + channel;
+
+    /// <summary>
+    /// Read everything the widget shows for one channel. Each field succeeds or fails on its own,
+    /// so a caller can still use the parts that came back.
+    /// </summary>
+    public ChannelReading ReadChannel(int channel)
+    {
+        var r = new ChannelReading();
+        r.OkMeas = TryReadMeasurementAll(channel, out r.MeasVolts, out r.MeasAmps, out r.MeasWatts);
+        r.OkMode = TryGetMode(channel, out r.Mode);
+        r.OkSet = TryGetApplied(channel, out r.SetVolts, out r.SetAmps);
+        r.OkOutput = TryGetOutputState(channel, out r.OutputOn);
+        r.OkOcp = TryGetOcpState(channel, out r.OcpOn);
+        r.OkOcpValue = TryGetOcpValue(channel, out r.OcpValue);
+        r.OkOcpTrip = TryGetOcpAlarm(channel, out r.OcpTripped);
+        r.OkOvp = TryGetOvpState(channel, out r.OvpOn);
+        r.OkOvpValue = TryGetOvpValue(channel, out r.OvpValue);
+        r.OkOvpTrip = TryGetOvpAlarm(channel, out r.OvpTripped);
+        return r;
+    }
 
     /// <summary>Read the device identity string (*IDN?).</summary>
     public bool TryGetIdentity(out string idn)

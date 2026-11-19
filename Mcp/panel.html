@@ -52,6 +52,8 @@
   .set input::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
   .set input:focus { outline:none; border-color:var(--brand); }
   .set span { font-size:10px; color:var(--muted); }
+  .set .lim { color:var(--brand); }
+  .over { color:var(--danger) !important; }
   .prot { display:flex; flex-direction:column; gap:3px; font-size:10px; color:var(--muted); }
   .prot b { color:var(--text); font-family:var(--mono); font-weight:600; }
   .trip { color:#fff; background:var(--danger); border-radius:3px; padding:1px 5px;
@@ -68,6 +70,7 @@
     <span class="state" id="ctrl"></span>
     <span class="spacer"></span>
     <label class="auto"><input type="checkbox" id="auto"> auto 2s</label>
+    <button id="alloff" class="warn" disabled title="Turn every output off">All OFF</button>
     <button id="refresh">Refresh</button>
   </div>
   <div class="banner" id="banner" hidden></div>
@@ -107,8 +110,14 @@ window.addEventListener('message', (e) => {
   }
 });
 
-function callTool(name, args) {
-  return request('tools/call', { name, arguments: args || {} });
+// A refused tool call comes back as a normal result with isError=true; surface it as an error.
+async function callTool(name, args) {
+  const res = await request('tools/call', { name, arguments: args || {} });
+  if (res && res.isError) {
+    const text = (res.content || []).map(c => c.text || '').join(' ').trim();
+    throw new Error(text.replace(/^An error occurred invoking '[^']*':\s*/, '') || (name + ' failed'));
+  }
+  return res;
 }
 
 /* ---------- helpers ---------- */
@@ -128,6 +137,13 @@ function setStatus(msg, isErr) {
 /* ---------- rendering ---------- */
 let controlAllowed = false;
 let busy = false;
+let lastSource = '';
+let lastMeasAge = 0;
+
+function updatedText() {
+  const t = 'Updated ' + new Date().toLocaleTimeString();
+  return lastSource === 'cache' ? `${t} · live data ${(lastMeasAge / 1000).toFixed(1)} s old` : t;
+}
 
 function render(st) {
   const channels = pick(st, 'channels') || [];
@@ -135,6 +151,10 @@ function render(st) {
   document.getElementById('model').textContent = pick(st, 'model') || 'RIGOL DP800';
   document.getElementById('dot').className = 'dot' + (channels.length ? '' : ' off');
   document.getElementById('ctrl').textContent = controlAllowed ? 'control allowed' : 'read-only';
+
+  document.getElementById('alloff').disabled = !controlAllowed;
+  lastSource = pick(st, 'source') || '';
+  lastMeasAge = pick(st, 'measurementAgeMs') || 0;
 
   const banner = document.getElementById('banner');
   if (controlAllowed) {
@@ -155,6 +175,13 @@ function render(st) {
     const ocp = pick(c, 'ocp') || {};
     const ovp = pick(c, 'ovp') || {};
     const mode = pick(c, 'mode') || '';
+    const lim = pick(c, 'limits') || {};
+    const maxV = pick(lim, 'maxVolts'), maxA = pick(lim, 'maxAmps');
+    const userLim = !!pick(lim, 'userDefined');
+    const setV = pick(s, 'volts'), setA = pick(s, 'amps');
+    const overV = userLim && typeof maxV === 'number' && setV > maxV + 1e-6;
+    const overA = userLim && typeof maxA === 'number' && setA > maxA + 1e-6;
+    const limText = userLim ? `<span class="lim" title="Limit set in the widget (Output Limits)">≤ ${num(maxV, 2)} V / ${num(maxA, 2)} A</span>` : '';
     const accent = ACCENT[(ch - 1) % 3];
     const dis = controlAllowed ? '' : 'disabled';
     const trip = (p, kind) => pick(p, 'tripped')
@@ -171,9 +198,10 @@ function render(st) {
         <div><span class="v">${num(pick(m, 'watts'))}</span><span class="u">W</span></div>
       </div>
       <div class="set">
-        <input type="number" step="0.1" min="0" value="${num(pick(s, 'volts'))}" data-setv="${ch}" ${dis}><span>V</span>
-        <input type="number" step="0.01" min="0" value="${num(pick(s, 'amps'))}" data-seta="${ch}" ${dis}><span>A</span>
+        <input type="number" step="0.1" min="0" ${typeof maxV === 'number' ? `max="${maxV}"` : ''} value="${num(setV)}" data-setv="${ch}" class="${overV ? 'over' : ''}" ${dis}><span>V</span>
+        <input type="number" step="0.01" min="0" ${typeof maxA === 'number' ? `max="${maxA}"` : ''} value="${num(setA)}" data-seta="${ch}" class="${overA ? 'over' : ''}" ${dis}><span>A</span>
         <button data-apply="${ch}" ${dis}>Set</button>
+        ${limText}
       </div>
       <div class="prot">
         <span>OCP ${pick(ocp, 'enabled') ? 'on' : 'off'} <b>${num(pick(ocp, 'threshold'))} A</b> ${trip(ocp, 'ocp')}</span>
@@ -191,7 +219,7 @@ async function refresh(quiet) {
     if (!quiet) setStatus('Reading…');
     const res = await callTool('get_status');
     const sc = res && res.structuredContent;
-    if (sc) { render(sc); setStatus('Updated ' + new Date().toLocaleTimeString()); }
+    if (sc) { render(sc); setStatus(updatedText()); }
     else setStatus('No structured content in get_status result', true);
   } catch (e) {
     setStatus('Error: ' + e.message, true);
@@ -201,6 +229,16 @@ async function refresh(quiet) {
 }
 
 document.getElementById('refresh').addEventListener('click', () => refresh(false));
+
+document.getElementById('alloff').addEventListener('click', async () => {
+  try {
+    setStatus('Turning every output off…');
+    await callTool('all_outputs_off');
+    await refresh(true);
+  } catch (err) {
+    setStatus('Error: ' + err.message, true);
+  }
+});
 
 let timer = null;
 document.getElementById('auto').addEventListener('change', (e) => {

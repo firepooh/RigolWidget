@@ -21,6 +21,9 @@ An always-on-top **control widget for RIGOL DP800-series DC power supplies** for
 - **Protection** — enable OCP (over-current) / OCV (over-voltage, SCPI OVP) and set thresholds; TRIP warning and clear on a protection event
 - **Auto-connect** — remembers the last device and skips the selection window on later launches (falls back to the selection window when the instrument is swapped)
 - **Auto reconnect** — keeps retrying the last device if USB drops during operation
+- **Output limits** — per-channel voltage/current ceilings that neither the widget nor the AI can exceed
+- **All outputs OFF** — one title-bar power button turns every channel off
+- **Remembered position & Start with Windows** — reopens where you left it and can launch at sign-in
 - **AI control (embedded MCP server)** — an MCP client such as Claude can read and control the supply in natural language (off by default, opt-in)
 - **Widget UX** — always on top, frameless drag-to-move, opacity control, magnetic edge snapping
 
@@ -48,6 +51,15 @@ Connect with **`Remember this device and connect automatically`** checked, and t
 - **Pin a device in a shortcut**: `RigolWidget.exe --device "USB0::0x1AB1::0x0E11::DP8C200300243::INSTR"`
 - Stored as `AutoConnect` / `LastResource` in `%APPDATA%\RigolWidget\settings.json`.
 
+#### Start with Windows
+
+Check **right-click → `Start with Windows`** to launch the widget when you sign in.
+
+- It registers for the current user only (`HKCU\...\Run`); no admin rights needed.
+- If the instrument is still powered off at sign-in, no selection window appears: the widget opens and connects as soon as the instrument is switched on.
+- After moving the exe to another folder, check the item again. The check mark only shows when the running exe is the registered one.
+- The window position is saved whenever you move it, so the widget reopens in the same place. If that monitor is gone, it opens centered on the primary monitor.
+
 ### 2. Operate the main widget
 
 | Target | Action | How |
@@ -59,10 +71,13 @@ Connect with **`Remember this device and connect automatically`** checked, and t
 | **OCP / OCV** | Enable/disable protection | Click the checkbox in the right protection group |
 | | Change threshold | Type a number in the adjacent box and press Enter |
 | **Clear TRIP** | Recover a protection trip | Click the red blinking `TRIP` badge |
-| **Move window** | Reposition | Drag the title bar (snaps to screen edges) |
+| **All outputs OFF** | Every channel off | Red title-bar **power button**, or right-click → `All Outputs OFF` |
+| **Output limits** | Per-channel max V/A | Title-bar **right-click → `Output Limits…`** (see below) |
+| **Move window** | Reposition | Drag the title bar (snaps to screen edges; position is saved) |
 | **Mini mode** | Toggle full ↔ mini | **Double-click** the title bar |
 | **Opacity** | Solid ↔ transparent | **Mouse wheel** over the title bar |
 | **Always on top** | Toggle TopMost | Title-bar 📌 button, or the right-click menu |
+| **Start with Windows** | Launch at sign-in | Title-bar **right-click → `Start with Windows`** |
 | **Change device** | Switch to another instrument | Title-bar **right-click → `Change Device…`** |
 | **Version / Close** | — | Title-bar **right-click** menu |
 
@@ -73,6 +88,16 @@ Connect with **`Remember this device and connect automatically`** checked, and t
 ![Mini mode](docs/screenshot-mini.png)
 
 > **Setpoint (SET) display**: the currently configured voltage/current is always shown to the right of the reading. While you adjust with the wheel the numbers blink, and the value is sent to the device about 2 seconds after you stop (to avoid flooding the instrument with commands during continuous adjustment).
+
+### 4. Output limits
+
+Use these when a channel must never go above a certain voltage or current, e.g. it feeds a 3.3 V board. Set per-channel maximums under title-bar **right-click → `Output Limits…`**. An empty box means no limit (up to the model rating).
+
+- The mouse wheel and the setpoint popup stop at the limit.
+- A request from AI (MCP) above the limit is **refused**, not clamped, and the AI gets the reason.
+- An output **cannot be turned on** while its setpoint is above the limit. The setpoint is read back from the instrument right before switching on, so values changed on the front panel are caught too.
+- A setpoint above its limit is shown in red. Hover a SET value to see the limit in effect.
+- **AI clients cannot change the limits**; only the widget menu can.
 
 ### Voltage/current vs OCP/OCV
 
@@ -196,19 +221,22 @@ Ask Claude in natural language and it calls the tools below on its own:
 
 | Tool | Description | Hint | Control required |
 |---|---|:---:|:---:|
-| `get_status` | Read all channels' measurements, setpoints, output, CV/CC, OCP/OVP and trip status | read-only | — |
+| `get_status` | Read all channels' measurements, setpoints, output, CV/CC, OCP/OVP, trip status and limits | read-only | — |
 | `get_identity` | Read model name, IDN and channel count | read-only | — |
 | `show_panel` | **Render a live control panel inside the chat** (MCP Apps) | read-only | — |
-| `set_voltage` / `set_current` | Set channel voltage / current limit | mutating | ✅ |
-| `set_output` | Channel output ON/OFF | mutating | ✅ |
+| `set_voltage` / `set_current` | Set channel voltage / current limit (refused above a user limit) | mutating | ✅ |
+| `set_output` | Channel output ON/OFF (ON refused while a setpoint is above a user limit) | mutating | ✅ |
+| `all_outputs_off` | Turn every channel off at once (emergency stop) | mutating | ✅ |
 | `set_ocp` / `set_ovp` | Enable over-current / over-voltage protection and set thresholds | mutating | ✅ |
 | `clear_trip` | Clear a protection trip (OCP/OVP) | mutating | ✅ |
 
 Every tool also publishes MCP **tool annotations** (`readOnlyHint` / `destructiveHint` / `idempotentHint` / `openWorldHint`), so a client can tell "look at the instrument" apart from "change the instrument" — e.g. auto-approve the read tools and confirm only the mutating ones. The read tools additionally return **structured output** (`structuredContent` + `outputSchema`), so clients read values by schema instead of parsing text.
 
+`get_status` answers from the values the widget already polled, so frequent questions from the AI or the panel add no instrument traffic. When the values may have changed, e.g. right after a write command, it reads the instrument again. The `source` (`cache`/`device`), `measurementAgeMs` and `settingsAgeMs` fields tell you how fresh the data is.
+
 ### Control panel inside the chat (MCP Apps)
 
-Calling `show_panel` renders a working control panel right in the conversation: live measurements for every channel, plus output toggles, setpoint entry and trip clearing.
+Calling `show_panel` renders a working control panel right in the conversation: live measurements for every channel, plus output toggles, setpoint entry, trip clearing and All OFF. Channels with a user limit show it (e.g. `≤ 5.00 V / 0.50 A`), and a setpoint above its limit is shown in red.
 
 ![MCP control panel in the chat](docs/mcp-panel.png)
 
@@ -224,12 +252,14 @@ Since an AI is controlling real hardware, safety comes first:
 - **Control lock**: until "Allow MCP Control" is on, all write tools are rejected (read-only).
 - **Local only**: bound to `127.0.0.1` (your PC only); not reachable from external networks.
 - **Rating clamp**: every setpoint is automatically limited to the detected model's ratings (e.g. cannot exceed 30V/3A).
+- **User limits**: requests above the `Output Limits…` values are refused, and an output cannot be turned on while its setpoint is above the limit. The AI cannot change these limits.
+- **All off**: the widget's power button always works, whatever the MCP settings. The AI's `all_outputs_off` needs "Allow MCP Control", like every other write tool.
 - **Command log**: every write command from the AI is logged to `%LOCALAPPDATA%\RigolWidget\rigolwidget.log`.
 - **Refusals are errors**: a write attempted while control is off comes back as a tool *error*, not a successful response, so the AI cannot mistake it for success.
 
 ### Protocol / compatibility
 
-The embedded server is built on MCP C# SDK **2.2.0** and supports the current spec revision **2026-07-28** (stateless requests, `server/discover`, caching hints). Clients that still use the `initialize` handshake (**2025-11-25 and earlier**) keep working too, via hybrid session mode — no change needed to an existing Claude Code/Desktop setup.
+The embedded server is built on MCP C# SDK **2.4.0** and supports the current spec revision **2026-07-28** (stateless requests, `server/discover`, caching hints). Clients that still use the `initialize` handshake (**2025-11-25 and earlier**) keep working too, via hybrid session mode — no change needed to an existing Claude Code/Desktop setup.
 
 ## Download
 
@@ -263,7 +293,7 @@ git push origin v1.0.0
 ## How it works
 
 - **Instrument I/O**: P/Invokes `visa32.dll` (the VISA C API) directly to exchange SCPI commands. No NuGet/COM references — it loads the system's VISA implementation at runtime.
-- **Polling**: about every 1 s it reads measurements (`:MEAS:ALL?`) and operating mode (`:OUTP:MODE?`), and every 4th cycle it does a full sync including setpoints, protection state, and trip alarms. Batched queries (`:MEAS:ALL?`, `:APPL?`) minimize the number of USB round-trips.
+- **Polling**: about every 1 s it reads measurements (`:MEAS:ALL?`) and operating mode (`:OUTP:MODE?`), and every 4th cycle it does a full sync including setpoints, protection state, and trip alarms. Batched queries (`:MEAS:ALL?`, `:APPL?`) minimize the number of USB round-trips. The MCP read tools reuse these poll results.
 - **Reconnect**: on a communication error it closes the session and periodically retries the last resource. Failures are logged to `%LOCALAPPDATA%\RigolWidget\rigolwidget.log`.
 - **Seven-segment display**: embeds the [DSEG7 Classic](https://github.com/keshikan/DSEG) font (SIL OFL) so the VFD style renders without installing a font on the target PC.
 - **Render optimization**: separates the shadow from content, updates text only when values change, and caps always-on animation at a low frame rate to minimize idle CPU/GPU load.

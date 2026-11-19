@@ -117,11 +117,18 @@
                         MouseWheel="TitleBar_MouseWheel"
                         ToolTip="Drag: move  ·  Double-click: mini  ·  Wheel: opacity">
                     <Border.ContextMenu>
-                        <ContextMenu>
+                        <ContextMenu Opened="TitleMenu_Opened">
                             <MenuItem x:Name="VersionMenu" Header="RigolWidget" IsEnabled="False"/>
+                            <Separator/>
+                            <MenuItem Header="All Outputs OFF" Click="AllOff_Click" FontWeight="SemiBold"
+                                      ToolTip="Turn off every channel output now."/>
+                            <MenuItem Header="Output Limits…" Click="LimitsMenu_Click"
+                                      ToolTip="Per-channel voltage/current ceilings for the widget and for AI (MCP)."/>
                             <Separator/>
                             <MenuItem x:Name="PinMenu" Header="Always on Top" IsCheckable="True"
                                       IsChecked="True" Click="PinMenu_Click"/>
+                            <MenuItem x:Name="StartupMenu" Header="Start with Windows" IsCheckable="True"
+                                      Click="StartupMenu_Click"/>
                             <Separator/>
                             <MenuItem Header="Change Device…" Click="ChangeDeviceMenu_Click"
                                       ToolTip="Connect to another instrument without restarting."/>
@@ -154,6 +161,16 @@
                         </StackPanel>
 
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                            <!-- All outputs OFF (power icon) -->
+                            <Button x:Name="AllOffButton" Click="AllOff_Click" ToolTip="All outputs OFF"
+                                    Background="Transparent" BorderThickness="0" Cursor="Hand"
+                                    Padding="0" Margin="0,0,7,0" Width="14" Height="14">
+                                <Viewbox Width="11" Height="11">
+                                    <Path Stroke="{StaticResource TripLabel}" StrokeThickness="2.4"
+                                          StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                          Data="M12,3 L12,11 M6.34,6.34 A8,8 0 1 0 17.66,6.34"/>
+                                </Viewbox>
+                            </Button>
                             <Button x:Name="PinButton" Click="Pin_Click" ToolTip="Always on Top"
                                     Background="Transparent" BorderThickness="0" Cursor="Hand"
                                     Padding="0" Margin="0,0,7,0" Width="14" Height="14">

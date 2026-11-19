@@ -16,12 +16,15 @@ public partial class App : Application
         bool forceSelect =
             System.Windows.Forms.Control.ModifierKeys.HasFlag(System.Windows.Forms.Keys.Shift);
         string? resource = null;
+        bool autostart = false;   // launched by "Start with Windows"
 
         for (int i = 0; i < e.Args.Length; i++)
         {
             string a = e.Args[i];
             if (a.Equals("--select", StringComparison.OrdinalIgnoreCase))
                 forceSelect = true;
+            else if (a.Equals(StartupRegistration.AutostartArg, StringComparison.OrdinalIgnoreCase))
+                autostart = true;
             else if (a.StartsWith("--device=", StringComparison.OrdinalIgnoreCase))
                 resource = a["--device=".Length..];
             else if (a.Equals("--device", StringComparison.OrdinalIgnoreCase) && i + 1 < e.Args.Length)
@@ -45,6 +48,12 @@ public partial class App : Application
                     settings.Save();
                 }
                 resource = match;
+            }
+            else if (autostart)
+            {
+                // Started at sign-in: the instrument may simply be powered off. Open the widget
+                // anyway; the reconnect loop connects as soon as the saved device appears.
+                resource = settings.LastResource;
             }
             else
             {

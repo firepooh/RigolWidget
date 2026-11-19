@@ -14,8 +14,15 @@ public sealed class RigolConnection : IDisposable
     private VisaSession? _session;
     private volatile bool _connected;
     private bool _disposed;
+    private long _writeCount;
 
     public string Resource { get; private set; }
+
+    /// <summary>
+    /// Number of write commands sent so far. A reader that took a snapshot when this was N knows
+    /// the instrument settings may have changed once it is greater than N.
+    /// </summary>
+    public long WriteCount => Interlocked.Read(ref _writeCount);
 
     /// <summary>Raised when the connection state changes (true = connected).</summary>
     public event Action<bool>? ConnectionChanged;
@@ -124,6 +131,12 @@ public sealed class RigolConnection : IDisposable
                 DebugLog.Write($"Write failed: '{command}' — {ex.Message}");
                 Drop();
                 return false;
+            }
+            finally
+            {
+                // Counted after the command went out (still under the lock), so a reader that
+                // captured the count before its own queries can never miss this write.
+                Interlocked.Increment(ref _writeCount);
             }
         }
     }

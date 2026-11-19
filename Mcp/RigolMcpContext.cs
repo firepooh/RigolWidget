@@ -1,3 +1,4 @@
+using RigolWidget.Services;
 using RigolWidget.Visa;
 
 namespace RigolWidget.Mcp;
@@ -10,9 +11,20 @@ public sealed class RigolMcpContext
 {
     private readonly Dp832 _device;
 
-    public RigolMcpContext(Dp832 device) => _device = device;
+    public RigolMcpContext(Dp832 device, StatusCache cache, OutputLimits limits)
+    {
+        _device = device;
+        Cache = cache;
+        Limits = limits;
+    }
 
     public Dp832 Device => _device;
+
+    /// <summary>State gathered by the widget's poll loop; read tools answer from it while fresh.</summary>
+    public StatusCache Cache { get; }
+
+    /// <summary>User setpoint limits set in the widget (read-only from MCP).</summary>
+    public OutputLimits Limits { get; }
 
     /// <summary>Whether control (write) is allowed. When off, the tools can only read.</summary>
     public volatile bool ControlAllowed;

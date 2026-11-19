@@ -34,7 +34,10 @@ public partial class MainWindow : Window
     private Dp800Model _model = Dp800Models.Default;  // Detected device model (ratings)
     private bool _identified;                          // whether *IDN? identification is done
 
-    private readonly AppSettings _settings;           // App settings (MCP, etc.)
+    private readonly AppSettings _settings;           // App settings (MCP, limits, position, etc.)
+    private readonly StatusCache _cache = new();      // Poll results, served to MCP read tools
+    private readonly OutputLimits _limits;            // User setpoint limits (widget + MCP)
+    private readonly WindowPlacement _placement;      // Remembers the window position
     private readonly RigolMcpContext _mcpContext;     // MCP shared context
     private readonly RigolMcpServer _mcpServer;       // Embedded MCP server
 
@@ -47,6 +50,10 @@ public partial class MainWindow : Window
     public MainWindow(string resource)
     {
         InitializeComponent();
+
+        _settings = AppSettings.Load();
+        _limits = new OutputLimits(_settings.Limits);
+        _placement = new WindowPlacement(this, _settings);   // restores the last position before Show
 
         _rm = new VisaResourceManager();
         _conn = new RigolConnection(_rm, resource);
@@ -101,9 +108,11 @@ public partial class MainWindow : Window
 
         foreach (var c in _channels)
         {
+            c.SetBrush = c.SetVText.Foreground;   // normal SET color (turns red while above a limit)
             RenderToggle(c, animate: false);
             RenderMode(c);
             RenderProtection(c);
+            RenderLimitHint(c);
         }
 
         BuildPulse();
@@ -118,9 +127,8 @@ public partial class MainWindow : Window
         int plus = infoVer.IndexOf('+');
         VersionMenu.Header = $"RigolWidget v{(plus > 0 ? infoVer[..plus] : infoVer)}";
 
-        // Initialize the embedded MCP server (load settings).
-        _settings = AppSettings.Load();
-        _mcpContext = new RigolMcpContext(_dev)
+        // Initialize the embedded MCP server (shares the poll cache and the user limits).
+        _mcpContext = new RigolMcpContext(_dev, _cache, _limits)
         {
             ControlAllowed = _settings.McpAllowControl,
             Model = _model,
@@ -191,16 +199,23 @@ public partial class MainWindow : Window
         Dispatcher.Invoke(() => ApplyModel(model));
     }
 
-    /// <summary>Apply the detected model to the UI: title label, channel ratings, CH2 visibility.</summary>
+    /// <summary>Apply the detected model to the UI: title, channel ratings, channel visibility.</summary>
     private void ApplyModel(Dp800Model model)
     {
         _model = model;
         _mcpContext.Model = model;   // MCP tools use the same model for rating clamps
+        _cache.Clear();              // channel count/ratings may differ from the previous device
         ModelLabel.Text = model.Name;
+        Title = model.Name;          // taskbar / Alt+Tab name
 
         _channels[0].Rating = model.Ch1;
         _channels[1].Rating = model.Ch2 ?? model.Ch1;
         _channels[2].Rating = model.Ch3 ?? model.Ch1;
+        foreach (var c in _channels)
+        {
+            RenderLimitHint(c);
+            RenderSet(c);
+        }
 
         // Show only the channels this model has (full & mini).
         var ch2Vis = model.HasCh2 ? Visibility.Visible : Visibility.Collapsed;
@@ -234,8 +249,10 @@ public partial class MainWindow : Window
     /// <summary>Fast poll: measurements (batched query) + operating mode (CV/CC).</summary>
     private void FastPollChannel(ChannelUi c)
     {
-        bool okMeas = _dev.TryReadMeasurementAll(c.Channel, out double v, out double a, out _);
+        bool okMeas = _dev.TryReadMeasurementAll(c.Channel, out double v, out double a, out double w);
         bool okM = _dev.TryGetMode(c.Channel, out string mode);
+        if (okMeas)
+            _cache.UpdateMeasurement(c.Channel, v, a, w, okM ? mode : null, DateTime.UtcNow);
 
         Dispatcher.InvokeAsync(() =>
         {
@@ -254,16 +271,19 @@ public partial class MainWindow : Window
     /// </summary>
     private void FullSyncChannel(ChannelUi c)
     {
-        bool okMeas = _dev.TryReadMeasurementAll(c.Channel, out double measV, out double measA, out _);
-        bool okMode = _dev.TryGetMode(c.Channel, out string mode);
-        bool okSet = _dev.TryGetApplied(c.Channel, out double setV, out double setA);
-        bool okOut = _dev.TryGetOutputState(c.Channel, out bool outOn);
-        bool okOcp = _dev.TryGetOcpState(c.Channel, out bool ocpOn);
-        bool okOcpV = _dev.TryGetOcpValue(c.Channel, out double ocpVal);
-        bool okOcpT = _dev.TryGetOcpAlarm(c.Channel, out bool ocpTrip);
-        bool okOcv = _dev.TryGetOvpState(c.Channel, out bool ocvOn);
-        bool okOcvV = _dev.TryGetOvpValue(c.Channel, out double ocvVal);
-        bool okOcvT = _dev.TryGetOvpAlarm(c.Channel, out bool ocvTrip);
+        // Read the write counter first: a write that lands during this read marks the cache stale.
+        long writesBefore = _dev.WriteCount;
+        var r = _dev.ReadChannel(c.Channel);
+        _cache.UpdateFull(c.Channel, r, writesBefore, DateTime.UtcNow);
+
+        bool okMeas = r.OkMeas, okMode = r.OkMode, okSet = r.OkSet, okOut = r.OkOutput;
+        bool okOcp = r.OkOcp, okOcpV = r.OkOcpValue, okOcpT = r.OkOcpTrip;
+        bool okOcv = r.OkOvp, okOcvV = r.OkOvpValue, okOcvT = r.OkOvpTrip;
+        double measV = r.MeasVolts, measA = r.MeasAmps, setV = r.SetVolts, setA = r.SetAmps;
+        double ocpVal = r.OcpValue, ocvVal = r.OvpValue;
+        bool outOn = r.OutputOn, ocpOn = r.OcpOn, ocpTrip = r.OcpTripped;
+        bool ocvOn = r.OvpOn, ocvTrip = r.OvpTripped;
+        string mode = r.Mode;
 
         Dispatcher.InvokeAsync(() =>
         {
@@ -316,6 +336,7 @@ public partial class MainWindow : Window
 
     private void OnConnectionChanged(bool connected)
     {
+        _cache.Clear();          // never serve values from before a disconnect / device switch
         if (connected)
         {
             _pollTick = 0;      // full sync on the next poll right after (re)connect
@@ -441,12 +462,35 @@ public partial class MainWindow : Window
         }
     }
 
-    /// <summary>Update the SET value (setpoint voltage/current) display.</summary>
-    private static void RenderSet(ChannelUi c)
+    /// <summary>
+    /// Update the SET value (setpoint voltage/current) display. A setpoint above the user limit
+    /// (e.g. changed on the front panel) is shown in red.
+    /// </summary>
+    private void RenderSet(ChannelUi c)
     {
         SetTextIfChanged(c.SetVText, c.SetV.ToString("0.000", CultureInfo.InvariantCulture) + " V");
         SetTextIfChanged(c.SetAText, c.SetA.ToString("0.000", CultureInfo.InvariantCulture) + " A");
+
+        var warn = (Brush)FindResource("TripLabel");
+        var normal = c.SetBrush ?? c.SetVText.Foreground;
+        var fgV = _limits.ExceedsVolts(c.Channel, c.SetV, out _) ? warn : normal;
+        var fgA = _limits.ExceedsAmps(c.Channel, c.SetA, out _) ? warn : normal;
+        if (!ReferenceEquals(c.SetVText.Foreground, fgV)) c.SetVText.Foreground = fgV;
+        if (!ReferenceEquals(c.SetAText.Foreground, fgA)) c.SetAText.Foreground = fgA;
     }
+
+    /// <summary>Tooltips on the SET values naming the ceiling that applies (user limit or model rating).</summary>
+    private void RenderLimitHint(ChannelUi c)
+    {
+        c.SetVText.ToolTip = _limits.UserMaxVolts(c.Channel) is double v
+            ? $"Limit {Fmt(v)} V (Output Limits)"
+            : $"Max {Fmt(c.Rating.VMax)} V (model rating)";
+        c.SetAText.ToolTip = _limits.UserMaxAmps(c.Channel) is double a
+            ? $"Limit {Fmt(a)} A (Output Limits)"
+            : $"Max {Fmt(c.Rating.IMax)} A (model rating)";
+    }
+
+    private static string Fmt(double v) => v.ToString("0.###", CultureInfo.InvariantCulture);
 
     /// <summary>Render the OCP/OCV checkbox + label + TRIP badge.</summary>
     private void RenderProtection(ChannelUi c)
@@ -502,7 +546,53 @@ public partial class MainWindow : Window
         c.OutputOn = !c.OutputOn;
         RenderToggle(c, animate: true);            // optimistic update
         bool target = c.OutputOn;
-        Task.Run(() => _dev.SetOutput(c.Channel, target));
+        int ch = c.Channel;
+        Task.Run(() =>
+        {
+            if (target && _limits.HasUserLimit(ch))
+            {
+                // Check what the instrument actually holds (the front panel may have changed it).
+                string? reason = _dev.TryGetApplied(ch, out double setV, out double setA)
+                    ? _limits.CheckOutputOn(ch, setV, setA)
+                    : $"Could not read the CH{ch} setpoint to check the limit.";
+                if (reason != null)
+                {
+                    Dispatcher.InvokeAsync(() => RefuseOutputOn(c, reason));
+                    return;
+                }
+            }
+            _dev.SetOutput(ch, target);
+        });
+    }
+
+    /// <summary>Undo the optimistic ON and tell the user why the output stays off.</summary>
+    private void RefuseOutputOn(ChannelUi c, string reason)
+    {
+        c.OutputOn = false;
+        RenderToggle(c, animate: true);
+        DebugLog.Write($"Output ON refused: {reason}");
+        MessageBox.Show(this, reason + "\n\nLower the setpoint first. The output stays off.",
+            "RigolWidget - Output Limits", MessageBoxButton.OK, MessageBoxImage.Warning);
+    }
+
+    /// <summary>Turn off every channel at once (title-bar power button / menu). Always allowed.</summary>
+    private void AllOutputsOff()
+    {
+        CommitWheel();   // send a pending wheel value first so it does not land after the OFF
+        var channels = _channels.Where(c => _model.HasChannel(c.Channel)).ToArray();
+        foreach (var c in channels)
+        {
+            c.OutputOn = false;
+            RenderToggle(c, animate: true);
+        }
+
+        int[] ids = channels.Select(c => c.Channel).ToArray();
+        DebugLog.Write("All outputs OFF (widget)");
+        Task.Run(() =>
+        {
+            foreach (int ch in ids) _dev.SetOutput(ch, false);
+            _pollTick = 0;   // full sync next -> confirm the real state
+        });
     }
 
     private void ToggleOcp(ChannelUi c)
@@ -532,8 +622,7 @@ public partial class MainWindow : Window
             _wheelCh = null;
         }
 
-        double max = field == 'V' ? c.Rating.VMax : c.Rating.IMax;
-        value = Math.Round(Math.Clamp(value, 0, max), 3);
+        value = Math.Round(Math.Clamp(value, 0, MaxFor(c, field)), 3);
         c.LastLocalSet = DateTime.UtcNow;
 
         if (field == 'V') c.SetV = value;
@@ -562,6 +651,11 @@ public partial class MainWindow : Window
             Task.Run(() => _dev.SetOvpValue(c.Channel, v));
         }
     }
+
+    /// <summary>Highest setpoint allowed for a field: the user limit if set, never above the model rating.</summary>
+    private double MaxFor(ChannelUi c, char field) => field == 'V'
+        ? _limits.EffectiveMaxVolts(c.Channel, c.Rating)
+        : _limits.EffectiveMaxAmps(c.Channel, c.Rating);
 
     private static bool TryParseNum(string text, out double value)
     {
@@ -607,8 +701,7 @@ public partial class MainWindow : Window
         double cur = _wheelCh == c && _wheelField == field
             ? _wheelValue
             : (field == 'V' ? c.SetV : c.SetA);
-        double max = field == 'V' ? c.Rating.VMax : c.Rating.IMax;
-        double value = Math.Round(Math.Clamp(cur + (e.Delta > 0 ? step : -step), 0, max), 3);
+        double value = Math.Round(Math.Clamp(cur + (e.Delta > 0 ? step : -step), 0, MaxFor(c, field)), 3);
 
         // Update the SET display + blink only. Send to the device after adjustment stops (timer).
         _wheelCh = c;
@@ -673,7 +766,9 @@ public partial class MainWindow : Window
         _popCh = c;
         _popField = field;
 
-        PopTitle.Text = $"CH{c.Channel} · Set {(field == 'V' ? "Voltage" : "Current")}";
+        double? userMax = field == 'V' ? _limits.UserMaxVolts(c.Channel) : _limits.UserMaxAmps(c.Channel);
+        PopTitle.Text = $"CH{c.Channel} · Set {(field == 'V' ? "Voltage" : "Current")}" +
+                        (userMax is double m ? $"  (limit {Fmt(m)} {field})" : "");
         PopTitle.Foreground = c.Accent;
         PopUnit.Text = field.ToString();
         PopApply.Background = c.Accent;
@@ -808,6 +903,76 @@ public partial class MainWindow : Window
     private void PinMenu_Click(object sender, RoutedEventArgs e) => SetPinned(PinMenu.IsChecked);
 
     private void CloseMenu_Click(object sender, RoutedEventArgs e) => Close();
+
+    private void AllOff_Click(object sender, RoutedEventArgs e) => AllOutputsOff();
+
+    /// <summary>Refresh items whose state lives outside the app (registry) each time the menu opens.</summary>
+    private void TitleMenu_Opened(object sender, RoutedEventArgs e) => RefreshStartupMenu();
+
+    private void RefreshStartupMenu()
+    {
+        string? exe = Environment.ProcessPath;
+        string? registered = StartupRegistration.GetCommand();
+        bool mine = exe != null && StartupRegistration.IsEnabledFor(exe);
+        StartupMenu.IsChecked = mine;
+        StartupMenu.ToolTip = registered != null && !mine
+            ? $"Another copy is registered: {StartupRegistration.ExtractExe(registered)}\nCheck to start this copy instead."
+            : "Start the widget when you sign in to Windows.";
+    }
+
+    private void StartupMenu_Click(object sender, RoutedEventArgs e)
+    {
+        string? exe = Environment.ProcessPath;
+        try
+        {
+            if (StartupMenu.IsChecked && exe != null) StartupRegistration.Enable(exe);
+            else StartupRegistration.Disable();
+            DebugLog.Write($"Start with Windows = {StartupMenu.IsChecked} ({exe})");
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, $"Could not change the startup entry.\n{ex.Message}",
+                "RigolWidget", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+        RefreshStartupMenu();
+    }
+
+    /// <summary>Edit the per-channel limits. They apply to the widget and to MCP immediately.</summary>
+    private void LimitsMenu_Click(object sender, RoutedEventArgs e)
+    {
+        bool pinned = Topmost;
+        Topmost = false;   // otherwise the widget covers the modal dialog
+
+        var dlg = new LimitsWindow(_model, _limits.ToSettings()) { Owner = this };
+        bool? ok = dlg.ShowDialog();
+
+        Topmost = pinned;
+        if (ok != true) return;
+
+        _limits.Load(dlg.Result);
+        _settings.Limits = _limits.ToSettings();
+        _settings.Save();
+        DebugLog.Write($"Output limits: {_limits.Describe()}");
+
+        foreach (var c in _channels)
+        {
+            RenderLimitHint(c);
+            RenderSet(c);
+        }
+
+        // Outputs already on above a new limit are reported, never switched off silently.
+        var over = _channels
+            .Where(c => _model.HasChannel(c.Channel) && c.OutputOn)
+            .Select(c => _limits.CheckOutputOn(c.Channel, c.SetV, c.SetA))
+            .OfType<string>()
+            .ToArray();
+        if (over.Length > 0)
+        {
+            MessageBox.Show(this,
+                string.Join("\n", over) + "\n\nThese outputs are still on. Lower the setpoint or turn the output off.",
+                "RigolWidget - Output Limits", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
 
     /// <summary>Swap to another instrument at runtime (device replaced) without restarting the app.</summary>
     private void ChangeDeviceMenu_Click(object sender, RoutedEventArgs e)
@@ -970,5 +1135,6 @@ public partial class MainWindow : Window
         public double SetA;
         public DateTime LastLocalSet = DateTime.MinValue;
         public ChannelRating Rating = new(30, 3, 33, 3.3);  // default DP832 channel ratings
+        public Brush? SetBrush;                              // normal SET text color
     }
 }
